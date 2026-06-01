@@ -11,107 +11,87 @@
 --  RELATIONAL SCHEMA
 -- ============================================================
 
+-- 1. Metro Stations
 CREATE TABLE IF NOT EXISTS metro_stations (
-    station_id                          VARCHAR(10)  PRIMARY KEY,
-    name                                VARCHAR(100) NOT NULL,
-    is_interchange_metro                BOOLEAN      DEFAULT FALSE,
-    is_interchange_national_rail        BOOLEAN      DEFAULT FALSE,
-    interchange_national_rail_station_id VARCHAR(10)
+    station_id                       VARCHAR(10)  PRIMARY KEY,
+    name                             TEXT         NOT NULL,
+    lines                            JSONB        NOT NULL,
+    is_interchange_metro             BOOLEAN      DEFAULT FALSE,
+    is_interchange_national_rail     BOOLEAN      DEFAULT FALSE,
+    interchange_nr_station_id        VARCHAR(10)
 );
 
+-- 2. National Rail Stations
 CREATE TABLE IF NOT EXISTS national_rail_stations (
-    station_id                      VARCHAR(10)  PRIMARY KEY,
-    name                            VARCHAR(100) NOT NULL,
-    is_interchange_metro            BOOLEAN      DEFAULT FALSE,
-    interchange_metro_station_id    VARCHAR(10)
+    station_id                       VARCHAR(10)  PRIMARY KEY,
+    name                             TEXT         NOT NULL,
+    lines                            JSONB        NOT NULL,
+    is_interchange_metro             BOOLEAN      DEFAULT FALSE,
+    interchange_metro_station_id     VARCHAR(10)
 );
 
+-- 3. Metro Schedules
 CREATE TABLE IF NOT EXISTS metro_schedules (
-    schedule_id             VARCHAR(20)  PRIMARY KEY,
-    line                    VARCHAR(10)  NOT NULL,
-    direction               VARCHAR(20)  NOT NULL,
-    origin_station_id       VARCHAR(10)  NOT NULL REFERENCES metro_stations(station_id),
-    destination_station_id  VARCHAR(10)  NOT NULL REFERENCES metro_stations(station_id),
-    first_train_time        TIME         NOT NULL,
-    last_train_time         TIME         NOT NULL,
-    base_fare_usd           NUMERIC(6,2) NOT NULL,
-    per_stop_rate_usd       NUMERIC(6,2) NOT NULL,
-    frequency_min           INTEGER      NOT NULL
+    schedule_id                VARCHAR(20)  PRIMARY KEY,
+    line                       VARCHAR(5)   NOT NULL,
+    direction                  VARCHAR(20),
+    origin_station_id          VARCHAR(10)  REFERENCES metro_stations(station_id),
+    destination_station_id     VARCHAR(10)  REFERENCES metro_stations(station_id),
+    stops_in_order             JSONB        NOT NULL,
+    travel_time_from_origin    JSONB,
+    first_train_time           TIME,
+    last_train_time            TIME,
+    base_fare_usd              NUMERIC(6,2) NOT NULL,
+    per_stop_rate_usd          NUMERIC(6,2) NOT NULL,
+    frequency_min              INTEGER,
+    operates_on                JSONB        NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS metro_schedule_operates_on (
-    schedule_id VARCHAR(20) NOT NULL REFERENCES metro_schedules(schedule_id),
-    day         VARCHAR(5)  NOT NULL,
-    PRIMARY KEY (schedule_id, day)
-);
-
-CREATE TABLE IF NOT EXISTS metro_schedule_stops (
-    schedule_id             VARCHAR(20)  NOT NULL REFERENCES metro_schedules(schedule_id),
-    station_id              VARCHAR(10)  NOT NULL REFERENCES metro_stations(station_id),
-    stop_order              INTEGER      NOT NULL,
-    travel_time_from_origin INTEGER      NOT NULL,
-    PRIMARY KEY (schedule_id, station_id)
-);
-
+-- 4. National Rail Schedules
 CREATE TABLE IF NOT EXISTS national_rail_schedules (
-    schedule_id             VARCHAR(20)  PRIMARY KEY,
-    line                    VARCHAR(10)  NOT NULL,
-    service_type            VARCHAR(20)  NOT NULL,
-    direction               VARCHAR(20)  NOT NULL,
-    origin_station_id       VARCHAR(10)  NOT NULL REFERENCES national_rail_stations(station_id),
-    destination_station_id  VARCHAR(10)  NOT NULL REFERENCES national_rail_stations(station_id),
-    first_train_time        TIME         NOT NULL,
-    last_train_time         TIME         NOT NULL,
-    frequency_min           INTEGER      NOT NULL,
-    standard_base_fare_usd  NUMERIC(6,2),
-    standard_per_stop_rate  NUMERIC(6,2),
-    first_base_fare_usd     NUMERIC(6,2),
-    first_per_stop_rate     NUMERIC(6,2)
+    schedule_id                VARCHAR(20)  PRIMARY KEY,
+    line                       VARCHAR(5)   NOT NULL,
+    service_type               VARCHAR(20)  NOT NULL,
+    direction                  VARCHAR(20),
+    origin_station_id          VARCHAR(10)  REFERENCES national_rail_stations(station_id),
+    destination_station_id     VARCHAR(10)  REFERENCES national_rail_stations(station_id),
+    stops_in_order             JSONB        NOT NULL,
+    travel_time_from_origin    JSONB,
+    first_train_time           TIME,
+    last_train_time            TIME,
+    std_base_fare_usd          NUMERIC(6,2),
+    std_per_stop_rate_usd      NUMERIC(6,2),
+    first_base_fare_usd        NUMERIC(6,2),
+    first_per_stop_rate_usd    NUMERIC(6,2),
+    frequency_min              INTEGER,
+    operates_on                JSONB        NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS national_rail_schedule_operates_on (
-    schedule_id VARCHAR(20) NOT NULL REFERENCES national_rail_schedules(schedule_id),
-    day         VARCHAR(5)  NOT NULL,
-    PRIMARY KEY (schedule_id, day)
-);
-
-CREATE TABLE IF NOT EXISTS national_rail_schedule_stops (
-    schedule_id             VARCHAR(20)  NOT NULL REFERENCES national_rail_schedules(schedule_id),
-    station_id              VARCHAR(10)  NOT NULL REFERENCES national_rail_stations(station_id),
-    stop_order              INTEGER      NOT NULL,
-    travel_time_from_origin INTEGER      NOT NULL,
-    PRIMARY KEY (schedule_id, station_id)
-);
-
+-- 5. Seat Layouts (one row per seat)
 CREATE TABLE IF NOT EXISTS seat_layouts (
-    layout_id   VARCHAR(20) PRIMARY KEY,
-    schedule_id VARCHAR(20) NOT NULL REFERENCES national_rail_schedules(schedule_id)
+    seat_id      VARCHAR(10)  NOT NULL,
+    schedule_id  VARCHAR(20)  NOT NULL REFERENCES national_rail_schedules(schedule_id),
+    coach        VARCHAR(5)   NOT NULL,
+    fare_class   VARCHAR(20)  NOT NULL,
+    row          INTEGER      NOT NULL,
+    col          VARCHAR(5)   NOT NULL,
+    PRIMARY KEY (schedule_id, seat_id)
 );
 
-CREATE TABLE IF NOT EXISTS seats (
-    layout_id  VARCHAR(20) NOT NULL REFERENCES seat_layouts(layout_id),
-    coach      VARCHAR(5)  NOT NULL,
-    fare_class VARCHAR(20) NOT NULL,
-    seat_id    VARCHAR(10) NOT NULL,
-    row        INTEGER     NOT NULL,
-    col        VARCHAR(5)  NOT NULL,
-    PRIMARY KEY (layout_id, seat_id)
-);
-
--- Users (no password stored here — credentials are in user_credentials table)
+-- 6. Users (no password stored here — credentials are in user_credentials table)
 CREATE TABLE IF NOT EXISTS users (
-    user_id         VARCHAR(10)  PRIMARY KEY,
-    full_name       VARCHAR(100) NOT NULL,
-    email           VARCHAR(150) NOT NULL UNIQUE,
+    user_id         VARCHAR(10)   PRIMARY KEY,
+    full_name       TEXT          NOT NULL,
+    email           VARCHAR(200)  UNIQUE NOT NULL,
     phone           VARCHAR(20),
     date_of_birth   DATE,
     secret_question TEXT,
     secret_answer   TEXT,
-    registered_at   TIMESTAMPTZ,
-    is_active       BOOLEAN      DEFAULT TRUE
+    registered_at   TIMESTAMPTZ   DEFAULT NOW(),
+    is_active       BOOLEAN       DEFAULT TRUE
 );
 
--- User Credentials (separate table — password hash and salt never stored with user info)
+-- 6b. User Credentials (separate table — password hash and salt never stored with user info)
 CREATE TABLE IF NOT EXISTS user_credentials (
     user_id       VARCHAR(10)  PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
     password_hash TEXT         NOT NULL,
@@ -120,6 +100,7 @@ CREATE TABLE IF NOT EXISTS user_credentials (
     updated_at    TIMESTAMPTZ  DEFAULT NOW()
 );
 
+-- 7. National Rail Bookings
 CREATE TABLE IF NOT EXISTS national_rail_bookings (
     booking_id              VARCHAR(20)  PRIMARY KEY,
     user_id                 VARCHAR(10)  NOT NULL REFERENCES users(user_id),
@@ -128,17 +109,18 @@ CREATE TABLE IF NOT EXISTS national_rail_bookings (
     destination_station_id  VARCHAR(10)  NOT NULL REFERENCES national_rail_stations(station_id),
     travel_date             DATE         NOT NULL,
     departure_time          TIME,
-    ticket_type             VARCHAR(20),
-    fare_class              VARCHAR(20),
+    ticket_type             VARCHAR(20)  NOT NULL,
+    fare_class              VARCHAR(20)  NOT NULL,
     coach                   VARCHAR(5),
     seat_id                 VARCHAR(10),
     stops_travelled         INTEGER,
-    amount_usd              NUMERIC(8,2),
-    status                  VARCHAR(20),
-    booked_at               TIMESTAMPTZ,
+    amount_usd              NUMERIC(8,2) NOT NULL,
+    status                  VARCHAR(20)  NOT NULL DEFAULT 'confirmed',
+    booked_at               TIMESTAMPTZ  DEFAULT NOW(),
     travelled_at            TIMESTAMPTZ
 );
 
+-- 8. Metro Travel History
 CREATE TABLE IF NOT EXISTS metro_travels (
     trip_id                 VARCHAR(20)  PRIMARY KEY,
     user_id                 VARCHAR(10)  NOT NULL REFERENCES users(user_id),
@@ -146,30 +128,33 @@ CREATE TABLE IF NOT EXISTS metro_travels (
     origin_station_id       VARCHAR(10)  NOT NULL REFERENCES metro_stations(station_id),
     destination_station_id  VARCHAR(10)  NOT NULL REFERENCES metro_stations(station_id),
     travel_date             DATE         NOT NULL,
-    ticket_type             VARCHAR(20),
+    ticket_type             VARCHAR(20)  NOT NULL,
+    day_pass_ref            VARCHAR(20),
     stops_travelled         INTEGER,
-    amount_usd              NUMERIC(8,2),
-    status                  VARCHAR(20),
-    purchased_at            TIMESTAMPTZ,
+    amount_usd              NUMERIC(8,2) NOT NULL,
+    status                  VARCHAR(20)  NOT NULL DEFAULT 'completed',
+    purchased_at            TIMESTAMPTZ  DEFAULT NOW(),
     travelled_at            TIMESTAMPTZ
 );
 
+-- 9. Payments (booking_id is polymorphic: BK*** or MT***)
 CREATE TABLE IF NOT EXISTS payments (
-    payment_id  VARCHAR(20) PRIMARY KEY,
-    booking_id  VARCHAR(20),
-    amount_usd  NUMERIC(8,2),
-    method      VARCHAR(30),
-    status      VARCHAR(20),
-    paid_at     TIMESTAMPTZ
+    payment_id   VARCHAR(20)  PRIMARY KEY,
+    booking_id   VARCHAR(20)  NOT NULL,
+    amount_usd   NUMERIC(8,2) NOT NULL,
+    method       VARCHAR(50),
+    status       VARCHAR(20)  NOT NULL DEFAULT 'paid',
+    paid_at      TIMESTAMPTZ  DEFAULT NOW()
 );
 
+-- 10. Feedback (booking_id is polymorphic: BK*** or MT***)
 CREATE TABLE IF NOT EXISTS feedback (
-    feedback_id  VARCHAR(20) PRIMARY KEY,
-    booking_id   VARCHAR(20),
-    user_id      VARCHAR(10) REFERENCES users(user_id),
-    rating       INTEGER,
-    comment      TEXT,
-    submitted_at TIMESTAMPTZ
+    feedback_id   VARCHAR(20)  PRIMARY KEY,
+    booking_id    VARCHAR(20)  NOT NULL,
+    user_id       VARCHAR(10)  NOT NULL REFERENCES users(user_id),
+    rating        INTEGER      CHECK (rating BETWEEN 1 AND 5),
+    comment       TEXT,
+    submitted_at  TIMESTAMPTZ  DEFAULT NOW()
 );
 
 

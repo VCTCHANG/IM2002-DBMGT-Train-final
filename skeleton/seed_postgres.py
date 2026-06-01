@@ -58,113 +58,132 @@ def insert_many(cur, table, columns, rows):
 def seed_metro_stations(cur):
     data = load("metro_stations.json")
     rows = [
-        (s["station_id"], s["name"],
-         s.get("is_interchange_metro", False),
-         s.get("is_interchange_national_rail", False),
-         s.get("interchange_national_rail_station_id"))
+        (
+            s["station_id"],
+            s["name"],
+            json.dumps(s["lines"]),
+            s.get("is_interchange_metro", False),
+            s.get("is_interchange_national_rail", False),
+            s.get("interchange_national_rail_station_id"),
+        )
         for s in data
     ]
     n = insert_many(cur, "metro_stations",
-                    ["station_id", "name", "is_interchange_metro",
-                     "is_interchange_national_rail", "interchange_national_rail_station_id"], rows)
+                    ["station_id", "name", "lines",
+                     "is_interchange_metro", "is_interchange_national_rail",
+                     "interchange_nr_station_id"],
+                    rows)
     print(f"  metro_stations: {n} rows")
 
 
 def seed_national_rail_stations(cur):
     data = load("national_rail_stations.json")
     rows = [
-        (s["station_id"], s["name"],
-         s.get("is_interchange_metro", False),
-         s.get("interchange_metro_station_id"))
+        (
+            s["station_id"],
+            s["name"],
+            json.dumps(s["lines"]),
+            s.get("is_interchange_metro", False),
+            s.get("interchange_metro_station_id"),
+        )
         for s in data
     ]
     n = insert_many(cur, "national_rail_stations",
-                    ["station_id", "name", "is_interchange_metro", "interchange_metro_station_id"], rows)
+                    ["station_id", "name", "lines",
+                     "is_interchange_metro", "interchange_metro_station_id"],
+                    rows)
     print(f"  national_rail_stations: {n} rows")
 
 
 def seed_metro_schedules(cur):
     data = load("metro_schedules.json")
-    sched_rows = [
-        (s["schedule_id"], s["line"], s["direction"],
-         s["origin_station_id"], s["destination_station_id"],
-         s["first_train_time"], s["last_train_time"],
-         s["base_fare_usd"], s["per_stop_rate_usd"], s["frequency_min"])
+    rows = [
+        (
+            s["schedule_id"],
+            s["line"],
+            s.get("direction"),
+            s["origin_station_id"],
+            s["destination_station_id"],
+            json.dumps(s["stops_in_order"]),
+            json.dumps(s.get("travel_time_from_origin_min", {})),
+            s.get("first_train_time"),
+            s.get("last_train_time"),
+            s["base_fare_usd"],
+            s["per_stop_rate_usd"],
+            s.get("frequency_min"),
+            json.dumps(s.get("operates_on", [])),
+        )
         for s in data
     ]
     n = insert_many(cur, "metro_schedules",
-                    ["schedule_id", "line", "direction", "origin_station_id", "destination_station_id",
-                     "first_train_time", "last_train_time", "base_fare_usd", "per_stop_rate_usd", "frequency_min"],
-                    sched_rows)
+                    ["schedule_id", "line", "direction",
+                     "origin_station_id", "destination_station_id",
+                     "stops_in_order", "travel_time_from_origin",
+                     "first_train_time", "last_train_time",
+                     "base_fare_usd", "per_stop_rate_usd",
+                     "frequency_min", "operates_on"],
+                    rows)
     print(f"  metro_schedules: {n} rows")
-
-    day_rows, stop_rows = [], []
-    for s in data:
-        for day in s.get("operates_on", []):
-            day_rows.append((s["schedule_id"], day))
-        stops = s.get("stops_in_order", [])
-        travel_times = s.get("travel_time_from_origin_min", {})
-        for order, station_id in enumerate(stops):
-            stop_rows.append((s["schedule_id"], station_id, order, travel_times.get(station_id, 0)))
-    insert_many(cur, "metro_schedule_operates_on", ["schedule_id", "day"], day_rows)
-    insert_many(cur, "metro_schedule_stops",
-                ["schedule_id", "station_id", "stop_order", "travel_time_from_origin"], stop_rows)
-    print(f"  metro_schedule_operates_on: {len(day_rows)} rows")
-    print(f"  metro_schedule_stops: {len(stop_rows)} rows")
 
 
 def seed_national_rail_schedules(cur):
     data = load("national_rail_schedules.json")
-    sched_rows = []
+    rows = []
     for s in data:
-        fares = s.get("fare_classes", {})
-        std = fares.get("standard", {})
-        fst = fares.get("first", {})
-        sched_rows.append((
-            s["schedule_id"], s["line"], s["service_type"], s["direction"],
-            s["origin_station_id"], s["destination_station_id"],
-            s["first_train_time"], s["last_train_time"], s["frequency_min"],
-            std.get("base_fare_usd"), std.get("per_stop_rate_usd"),
-            fst.get("base_fare_usd"), fst.get("per_stop_rate_usd"),
+        fc = s.get("fare_classes", {})
+        std = fc.get("standard", {})
+        first = fc.get("first", {})
+        rows.append((
+            s["schedule_id"],
+            s["line"],
+            s["service_type"],
+            s.get("direction"),
+            s["origin_station_id"],
+            s["destination_station_id"],
+            json.dumps(s["stops_in_order"]),
+            json.dumps(s.get("travel_time_from_origin_min", {})),
+            s.get("first_train_time"),
+            s.get("last_train_time"),
+            std.get("base_fare_usd"),
+            std.get("per_stop_rate_usd"),
+            first.get("base_fare_usd"),
+            first.get("per_stop_rate_usd"),
+            s.get("frequency_min"),
+            json.dumps(s.get("operates_on", [])),
         ))
     n = insert_many(cur, "national_rail_schedules",
                     ["schedule_id", "line", "service_type", "direction",
                      "origin_station_id", "destination_station_id",
-                     "first_train_time", "last_train_time", "frequency_min",
-                     "standard_base_fare_usd", "standard_per_stop_rate",
-                     "first_base_fare_usd", "first_per_stop_rate"], sched_rows)
+                     "stops_in_order", "travel_time_from_origin",
+                     "first_train_time", "last_train_time",
+                     "std_base_fare_usd", "std_per_stop_rate_usd",
+                     "first_base_fare_usd", "first_per_stop_rate_usd",
+                     "frequency_min", "operates_on"],
+                    rows)
     print(f"  national_rail_schedules: {n} rows")
-
-    day_rows, stop_rows = [], []
-    for s in data:
-        for day in s.get("operates_on", []):
-            day_rows.append((s["schedule_id"], day))
-        stops = s.get("stops_in_order", [])
-        travel_times = s.get("travel_time_from_origin_min", {})
-        for order, station_id in enumerate(stops):
-            stop_rows.append((s["schedule_id"], station_id, order, travel_times.get(station_id, 0)))
-    insert_many(cur, "national_rail_schedule_operates_on", ["schedule_id", "day"], day_rows)
-    insert_many(cur, "national_rail_schedule_stops",
-                ["schedule_id", "station_id", "stop_order", "travel_time_from_origin"], stop_rows)
-    print(f"  national_rail_schedule_operates_on: {len(day_rows)} rows")
-    print(f"  national_rail_schedule_stops: {len(stop_rows)} rows")
 
 
 def seed_seat_layouts(cur):
     data = load("national_rail_seat_layouts.json")
-    layout_rows, seat_rows = [], []
+    rows = []
     for layout in data:
-        layout_rows.append((layout["layout_id"], layout["schedule_id"]))
-        for coach in layout.get("coaches", []):
-            for seat in coach.get("seats", []):
-                seat_rows.append((
-                    layout["layout_id"], coach["coach"], coach["fare_class"],
-                    seat["seat_id"], seat["row"], seat["column"]
+        schedule_id = layout["schedule_id"]
+        for coach in layout["coaches"]:
+            fare_class = coach["fare_class"]
+            coach_label = coach["coach"]
+            for seat in coach["seats"]:
+                rows.append((
+                    seat["seat_id"],
+                    schedule_id,
+                    coach_label,
+                    fare_class,
+                    seat["row"],
+                    seat["column"],
                 ))
-    insert_many(cur, "seat_layouts", ["layout_id", "schedule_id"], layout_rows)
-    insert_many(cur, "seats", ["layout_id", "coach", "fare_class", "seat_id", "row", "col"], seat_rows)
-    print(f"  seat_layouts: {len(layout_rows)} rows")
-    print(f"  seats: {len(seat_rows)} rows")
+    n = insert_many(cur, "seat_layouts",
+                    ["seat_id", "schedule_id", "coach", "fare_class", "row", "col"],
+                    rows)
+    print(f"  seat_layouts: {n} rows")
 
 
 def seed_users(cur):
