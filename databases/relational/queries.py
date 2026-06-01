@@ -84,6 +84,9 @@ def query_national_rail_availability(
         destination_id:  e.g. "NR05"
         travel_date:     e.g. "2025-06-01" — used to count bookings; omit for general info
     """
+    # Join stops table twice (once for origin, once for destination) so we can
+    # compare stop_order directly — avoids JSONB array scanning.
+    # WHERE o.stop_order < d.stop_order ensures direction is correct.
     sql = """
         SELECT
             s.schedule_id,
@@ -97,71 +100,44 @@ def query_national_rail_availability(
             s.std_per_stop_rate_usd,
             s.first_base_fare_usd,
             s.first_per_stop_rate_usd,
-            s.stops_in_order,
-            orig.name  AS origin_name,
-            dest.name  AS destination_name,
-            (
-                SELECT pos FROM jsonb_array_elements_text(s.stops_in_order)
-                WITH ORDINALITY arr(station, pos)
-                WHERE station = %s LIMIT 1
-            ) AS origin_pos,
-            (
-                SELECT pos FROM jsonb_array_elements_text(s.stops_in_order)
-                WITH ORDINALITY arr(station, pos)
-                WHERE station = %s LIMIT 1
-            ) AS destination_pos
+            orig_s.name  AS origin_name,
+            dest_s.name  AS destination_name,
+            o.stop_order AS origin_stop_order,
+            d.stop_order AS destination_stop_order,
+            (d.stop_order - o.stop_order) AS stops_travelled
         FROM national_rail_schedules s
-        JOIN national_rail_stations orig ON orig.station_id = %s
-        JOIN national_rail_stations dest ON dest.station_id = %s
-        WHERE s.stops_in_order @> %s::jsonb
-          AND s.stops_in_order @> %s::jsonb
+        JOIN national_rail_schedule_stops o ON o.schedule_id = s.schedule_id AND o.station_id = %s
+        JOIN national_rail_schedule_stops d ON d.schedule_id = s.schedule_id AND d.station_id = %s
+        JOIN national_rail_stations orig_s ON orig_s.station_id = %s
+        JOIN national_rail_stations dest_s ON dest_s.station_id = %s
+        WHERE o.stop_order < d.stop_order
+        ORDER BY s.first_train_time
     """
-    origin_json = f'["{origin_id}"]'
-    dest_json = f'["{destination_id}"]'
     with _connect() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(sql, (
-                origin_id, destination_id,
-                origin_id, destination_id,
-                origin_json, dest_json,
-            ))
+            cur.execute(sql, (origin_id, destination_id, origin_id, destination_id))
             rows = [dict(r) for r in cur.fetchall()]
 
-    # Keep only schedules where origin appears before destination
-    results = []
+    # Augment each schedule with seat availability for the requested date
     for row in rows:
-        if row["origin_pos"] is not None and row["destination_pos"] is not None:
-            if row["origin_pos"] < row["destination_pos"]:
-                stops = row["stops_in_order"]
-                if isinstance(stops, str):
-                    import json as _j; stops = _j.loads(stops)
-                o_idx = stops.index(origin_id)
-                d_idx = stops.index(destination_id)
-                row["stops_travelled"] = d_idx - o_idx
-                row["stops_in_order"] = stops
+        if travel_date:
+            with _connect() as conn2:
+                with conn2.cursor() as cur2:
+                    # Count non-cancelled bookings to determine occupied seats
+                    cur2.execute(
+                        "SELECT COUNT(*) FROM national_rail_bookings "
+                        "WHERE schedule_id = %s AND travel_date = %s AND status != 'cancelled'",
+                        (row["schedule_id"], travel_date),
+                    )
+                    row["booked_seats"] = cur2.fetchone()[0]
+                    cur2.execute(
+                        "SELECT COUNT(*) FROM seat_layouts WHERE schedule_id = %s",
+                        (row["schedule_id"],),
+                    )
+                    row["total_seats"] = cur2.fetchone()[0]
+            row["available_seats"] = row["total_seats"] - row["booked_seats"]
 
-                # Seat occupancy for travel_date
-                if travel_date:
-                    with _connect() as conn2:
-                        with conn2.cursor() as cur2:
-                            cur2.execute(
-                                "SELECT COUNT(*) FROM national_rail_bookings "
-                                "WHERE schedule_id = %s AND travel_date = %s "
-                                "AND status != 'cancelled'",
-                                (row["schedule_id"], travel_date),
-                            )
-                            row["booked_seats"] = cur2.fetchone()[0]
-                    with _connect() as conn3:
-                        with conn3.cursor() as cur3:
-                            cur3.execute(
-                                "SELECT COUNT(*) FROM seat_layouts WHERE schedule_id = %s",
-                                (row["schedule_id"],),
-                            )
-                            row["total_seats"] = cur3.fetchone()[0]
-                    row["available_seats"] = row["total_seats"] - row["booked_seats"]
-
-                results.append(row)
-    return results
+    return rows
 
 
 def query_national_rail_fare(
@@ -218,6 +194,8 @@ def query_metro_schedules(origin_id: str, destination_id: str) -> list[dict]:
         origin_id:       e.g. "MS01"
         destination_id:  e.g. "MS09"
     """
+    # Same double-join pattern as national rail — compare stop_order from junction table
+    # to confirm origin comes before destination on this schedule.
     sql = """
         SELECT
             s.schedule_id,
@@ -228,49 +206,21 @@ def query_metro_schedules(origin_id: str, destination_id: str) -> list[dict]:
             s.frequency_min,
             s.base_fare_usd,
             s.per_stop_rate_usd,
-            s.stops_in_order,
-            orig.name AS origin_name,
-            dest.name AS destination_name,
-            (
-                SELECT pos FROM jsonb_array_elements_text(s.stops_in_order)
-                WITH ORDINALITY arr(station, pos)
-                WHERE station = %s LIMIT 1
-            ) AS origin_pos,
-            (
-                SELECT pos FROM jsonb_array_elements_text(s.stops_in_order)
-                WITH ORDINALITY arr(station, pos)
-                WHERE station = %s LIMIT 1
-            ) AS destination_pos
+            orig_s.name AS origin_name,
+            dest_s.name AS destination_name,
+            (d.stop_order - o.stop_order) AS stops_travelled
         FROM metro_schedules s
-        JOIN metro_stations orig ON orig.station_id = %s
-        JOIN metro_stations dest ON dest.station_id = %s
-        WHERE s.stops_in_order @> %s::jsonb
-          AND s.stops_in_order @> %s::jsonb
+        JOIN metro_schedule_stops o ON o.schedule_id = s.schedule_id AND o.station_id = %s
+        JOIN metro_schedule_stops d ON d.schedule_id = s.schedule_id AND d.station_id = %s
+        JOIN metro_stations orig_s ON orig_s.station_id = %s
+        JOIN metro_stations dest_s ON dest_s.station_id = %s
+        WHERE o.stop_order < d.stop_order
+        ORDER BY s.line
     """
-    origin_json = f'["{origin_id}"]'
-    dest_json = f'["{destination_id}"]'
     with _connect() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(sql, (
-                origin_id, destination_id,
-                origin_id, destination_id,
-                origin_json, dest_json,
-            ))
-            rows = [dict(r) for r in cur.fetchall()]
-
-    results = []
-    for row in rows:
-        if row["origin_pos"] is not None and row["destination_pos"] is not None:
-            if row["origin_pos"] < row["destination_pos"]:
-                stops = row["stops_in_order"]
-                if isinstance(stops, str):
-                    import json as _j; stops = _j.loads(stops)
-                o_idx = stops.index(origin_id)
-                d_idx = stops.index(destination_id)
-                row["stops_travelled"] = d_idx - o_idx
-                row["stops_in_order"] = stops
-                results.append(row)
-    return results
+            cur.execute(sql, (origin_id, destination_id, origin_id, destination_id))
+            return [dict(r) for r in cur.fetchall()]
 
 
 def query_metro_fare(schedule_id: str, stops_travelled: int) -> Optional[dict]:
@@ -372,14 +322,17 @@ def auto_select_adjacent_seats(available_seats: list[dict], count: int) -> list[
 # ── USER & BOOKING QUERIES ────────────────────────────────────────────────────
 
 def query_user_profile(user_email: str) -> Optional[dict]:
-    """Return a user's profile by email."""
+    """Return a user's profile by email, or None if not found."""
     with _connect() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
                 "SELECT user_id, email, full_name, "
                 "split_part(full_name, ' ', 1) AS first_name, "
                 "split_part(full_name, ' ', 2) AS surname, "
-                "phone, date_of_birth::text, is_active "
+                "phone, date_of_birth::text, "
+                # Extract year from date_of_birth for live testing requirement
+                "EXTRACT(YEAR FROM date_of_birth)::int AS year_of_birth, "
+                "is_active "
                 "FROM users WHERE email = %s",
                 (user_email,),
             )
@@ -479,23 +432,24 @@ def execute_booking(
     conn = psycopg2.connect(PG_DSN)
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            # Calculate stops_travelled from JSONB stops_in_order
+            # Use junction table to get stop positions — avoids JSONB scanning
             cur.execute("""
                 SELECT
-                    (SELECT (pos-1)::int FROM jsonb_array_elements_text(stops_in_order)
-                     WITH ORDINALITY AS t(val, pos) WHERE val = %s) AS origin_idx,
-                    (SELECT (pos-1)::int FROM jsonb_array_elements_text(stops_in_order)
-                     WITH ORDINALITY AS t(val, pos) WHERE val = %s) AS dest_idx,
-                    std_base_fare_usd, std_per_stop_rate_usd,
-                    first_base_fare_usd, first_per_stop_rate_usd,
-                    first_train_time, service_type
-                FROM national_rail_schedules WHERE schedule_id = %s
+                    s.std_base_fare_usd, s.std_per_stop_rate_usd,
+                    s.first_base_fare_usd, s.first_per_stop_rate_usd,
+                    s.first_train_time, s.service_type,
+                    o.stop_order AS origin_idx,
+                    d.stop_order AS dest_idx
+                FROM national_rail_schedules s
+                JOIN national_rail_schedule_stops o
+                    ON o.schedule_id = s.schedule_id AND o.station_id = %s
+                JOIN national_rail_schedule_stops d
+                    ON d.schedule_id = s.schedule_id AND d.station_id = %s
+                WHERE s.schedule_id = %s
             """, (origin_station_id, destination_station_id, schedule_id))
             sched = cur.fetchone()
             if not sched:
-                return False, "Schedule not found"
-            if sched["origin_idx"] is None or sched["dest_idx"] is None:
-                return False, "Origin or destination not on this schedule"
+                return False, "Schedule not found or stations not on this schedule"
             if sched["origin_idx"] >= sched["dest_idx"]:
                 return False, "Origin must come before destination on this schedule"
 

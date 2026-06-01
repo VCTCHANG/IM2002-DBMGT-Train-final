@@ -97,70 +97,97 @@ def seed_national_rail_stations(cur):
 
 def seed_metro_schedules(cur):
     data = load("metro_schedules.json")
-    rows = [
+    # Insert schedule header (no stops or operates_on — those go in junction tables)
+    sched_rows = [
         (
-            s["schedule_id"],
-            s["line"],
-            s.get("direction"),
-            s["origin_station_id"],
-            s["destination_station_id"],
-            json.dumps(s["stops_in_order"]),
-            json.dumps(s.get("travel_time_from_origin_min", {})),
-            s.get("first_train_time"),
-            s.get("last_train_time"),
-            s["base_fare_usd"],
-            s["per_stop_rate_usd"],
-            s.get("frequency_min"),
-            json.dumps(s.get("operates_on", [])),
+            s["schedule_id"], s["line"], s.get("direction"),
+            s["origin_station_id"], s["destination_station_id"],
+            s.get("first_train_time"), s.get("last_train_time"),
+            s["base_fare_usd"], s["per_stop_rate_usd"], s.get("frequency_min"),
         )
         for s in data
     ]
     n = insert_many(cur, "metro_schedules",
                     ["schedule_id", "line", "direction",
                      "origin_station_id", "destination_station_id",
-                     "stops_in_order", "travel_time_from_origin",
                      "first_train_time", "last_train_time",
-                     "base_fare_usd", "per_stop_rate_usd",
-                     "frequency_min", "operates_on"],
-                    rows)
+                     "base_fare_usd", "per_stop_rate_usd", "frequency_min"],
+                    sched_rows)
     print(f"  metro_schedules: {n} rows")
+
+    # Junction table: one row per stop — enables ordered stop lookups without JSONB
+    stop_rows = []
+    for s in data:
+        travel_times = s.get("travel_time_from_origin_min", {})
+        for order, station_id in enumerate(s.get("stops_in_order", [])):
+            stop_rows.append((
+                s["schedule_id"], station_id,
+                order,
+                travel_times.get(station_id, 0),
+            ))
+    ns = insert_many(cur, "metro_schedule_stops",
+                     ["schedule_id", "station_id", "stop_order", "travel_time_from_origin"],
+                     stop_rows)
+    print(f"  metro_schedule_stops: {ns} rows")
+
+    # Junction table: one row per operating day
+    day_rows = [
+        (s["schedule_id"], day)
+        for s in data
+        for day in s.get("operates_on", [])
+    ]
+    nd = insert_many(cur, "metro_schedule_operates_on", ["schedule_id", "day"], day_rows)
+    print(f"  metro_schedule_operates_on: {nd} rows")
 
 
 def seed_national_rail_schedules(cur):
     data = load("national_rail_schedules.json")
-    rows = []
+    sched_rows = []
     for s in data:
         fc = s.get("fare_classes", {})
         std = fc.get("standard", {})
         first = fc.get("first", {})
-        rows.append((
-            s["schedule_id"],
-            s["line"],
-            s["service_type"],
-            s.get("direction"),
-            s["origin_station_id"],
-            s["destination_station_id"],
-            json.dumps(s["stops_in_order"]),
-            json.dumps(s.get("travel_time_from_origin_min", {})),
-            s.get("first_train_time"),
-            s.get("last_train_time"),
-            std.get("base_fare_usd"),
-            std.get("per_stop_rate_usd"),
-            first.get("base_fare_usd"),
-            first.get("per_stop_rate_usd"),
+        sched_rows.append((
+            s["schedule_id"], s["line"], s["service_type"], s.get("direction"),
+            s["origin_station_id"], s["destination_station_id"],
+            s.get("first_train_time"), s.get("last_train_time"),
+            std.get("base_fare_usd"), std.get("per_stop_rate_usd"),
+            first.get("base_fare_usd"), first.get("per_stop_rate_usd"),
             s.get("frequency_min"),
-            json.dumps(s.get("operates_on", [])),
         ))
     n = insert_many(cur, "national_rail_schedules",
                     ["schedule_id", "line", "service_type", "direction",
                      "origin_station_id", "destination_station_id",
-                     "stops_in_order", "travel_time_from_origin",
                      "first_train_time", "last_train_time",
                      "std_base_fare_usd", "std_per_stop_rate_usd",
                      "first_base_fare_usd", "first_per_stop_rate_usd",
-                     "frequency_min", "operates_on"],
-                    rows)
+                     "frequency_min"],
+                    sched_rows)
     print(f"  national_rail_schedules: {n} rows")
+
+    # Junction table: normalised stop sequence
+    stop_rows = []
+    for s in data:
+        travel_times = s.get("travel_time_from_origin_min", {})
+        for order, station_id in enumerate(s.get("stops_in_order", [])):
+            stop_rows.append((
+                s["schedule_id"], station_id,
+                order,
+                travel_times.get(station_id, 0),
+            ))
+    ns = insert_many(cur, "national_rail_schedule_stops",
+                     ["schedule_id", "station_id", "stop_order", "travel_time_from_origin"],
+                     stop_rows)
+    print(f"  national_rail_schedule_stops: {ns} rows")
+
+    # Junction table: operating days
+    day_rows = [
+        (s["schedule_id"], day)
+        for s in data
+        for day in s.get("operates_on", [])
+    ]
+    nd = insert_many(cur, "national_rail_schedule_operates_on", ["schedule_id", "day"], day_rows)
+    print(f"  national_rail_schedule_operates_on: {nd} rows")
 
 
 def seed_seat_layouts(cur):
