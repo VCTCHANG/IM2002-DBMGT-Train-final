@@ -29,9 +29,20 @@ from neo4j import GraphDatabase
 from skeleton.config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD
 
 
+_DRIVER = None
+
+
 def _driver():
-    """Return a Neo4j driver. Caller is responsible for closing."""
-    return GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+    """Return a shared, lazily-created Neo4j driver.
+
+    The driver holds a connection pool and is safe to reuse across queries,
+    so we cache a single module-level instance instead of opening a new one
+    (and a new TCP connection) on every call. Only sessions are short-lived.
+    """
+    global _DRIVER
+    if _DRIVER is None:
+        _DRIVER = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+    return _DRIVER
 
 
 # ── Example ───────────────────────────────────────────────────────────────────
@@ -39,15 +50,21 @@ def _driver():
 
 def example_count_nodes() -> int:
     """Example: count all nodes currently in the graph."""
-    with _driver() as driver:
-        with driver.session() as session:
-            result = session.run("MATCH (n) RETURN count(n) AS total")
-            return result.single()["total"]
+    with _driver().session() as session:
+        result = session.run("MATCH (n) RETURN count(n) AS total")
+        return result.single()["total"]
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _rel_filter(network: str) -> str:
-    """APOC dijkstra relationship filter (no direction arrow = both ways)."""
+    """APOC relationship filter (no direction arrow = both ways).
+
+    - "metro" → metro links only
+    - "rail"  → rail links only
+    - "auto" / anything else → consider ALL link types (metro, rail and
+      interchanges). This lets pathfinding find genuinely optimal routes,
+      including cheaper cross-network shortcuts via interchange stations.
+    """
     if network == "metro":
         return "METRO_LINK"
     if network == "rail":
@@ -104,7 +121,7 @@ def query_shortest_route(
         "YIELD path, weight "
         "RETURN path, weight ORDER BY weight LIMIT 1"
     )
-    with _driver() as driver, driver.session() as session:
+    with _driver().session() as session:
         rec = session.run(cypher, o=origin_id, d=destination_id,
                           rels=_rel_filter(network)).single()
         if rec is None:
@@ -148,7 +165,7 @@ def query_cheapest_route(
         "YIELD path, weight "
         "RETURN path, weight ORDER BY weight LIMIT 1"
     )
-    with _driver() as driver, driver.session() as session:
+    with _driver().session() as session:
         rec = session.run(cypher, o=origin_id, d=destination_id,
                           rels=_rel_filter(network)).single()
         if rec is None:
@@ -205,7 +222,7 @@ def query_alternative_routes(
         "WITH path, reduce(t = 0, r IN relationships(path) | t + r.travel_time_min) AS total "
         "RETURN path, total ORDER BY total ASC LIMIT $max"
     )
-    with _driver() as driver, driver.session() as session:
+    with _driver().session() as session:
         # Pull extra rows then dedupe by station sequence: parallel line-edges
         # between the same stops would otherwise yield identical node paths.
         result = session.run(cypher, o=origin_id, d=destination_id,
@@ -245,7 +262,7 @@ def query_interchange_path(origin_id: str, destination_id: str) -> dict:
         "YIELD path, weight "
         "RETURN path, weight ORDER BY weight LIMIT 1"
     )
-    with _driver() as driver, driver.session() as session:
+    with _driver().session() as session:
         rec = session.run(cypher, o=origin_id, d=destination_id).single()
         if rec is None:
             return {"found": False, "origin_id": origin_id,
@@ -291,7 +308,7 @@ def query_delay_ripple(delayed_station_id: str, hops: int = 2) -> list[dict]:
         "length(sp) AS hops_away, n.lines AS lines_affected "
         "ORDER BY hops_away, station_id"
     )
-    with _driver() as driver, driver.session() as session:
+    with _driver().session() as session:
         result = session.run(cypher, id=delayed_station_id)
         return [dict(rec) for rec in result]
 
@@ -311,6 +328,6 @@ def query_station_connections(station_id: str) -> list[dict]:
         "type(r) AS link_type, r.line AS line, r.travel_time_min AS travel_time_min "
         "ORDER BY link_type, station_id"
     )
-    with _driver() as driver, driver.session() as session:
+    with _driver().session() as session:
         result = session.run(cypher, id=station_id)
         return [dict(rec) for rec in result]

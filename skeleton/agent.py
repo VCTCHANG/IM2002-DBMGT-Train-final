@@ -54,6 +54,7 @@ from databases.graph.queries import (
     query_alternative_routes,
     query_interchange_path,
     query_delay_ripple,
+    query_station_connections,
 )
 
 
@@ -272,6 +273,19 @@ TOOLS = [
         },
         "required": ["station_id"],
     },
+    {
+        "name": "get_station_connections",
+        "description": (
+            "List the direct connections (immediate neighbours) of a single station — "
+            "which stations it links to, on which line, and the travel time. Use for questions "
+            "like 'what connects to MS01?', 'which stations are next to NR03?', or 'is X directly "
+            "linked to Y?'. This is a single-station lookup, NOT a full route between two stations."
+        ),
+        "parameters": {
+            "station_id": {"type": "string", "description": "Station ID e.g. MS01 or NR01"},
+        },
+        "required": ["station_id"],
+    },
 ]
 
 TOOLS_SCHEMA = """\
@@ -286,7 +300,8 @@ cancel_booking(booking_id)
 get_user_bookings()
 search_policy(query)
 find_alternative_routes(origin_id, destination_id, avoid_station_id, network?)
-get_delay_ripple(station_id, hops?)"""
+get_delay_ripple(station_id, hops?)
+get_station_connections(station_id)"""
 
 
 # ── Agent logic ───────────────────────────────────────────────────────────────
@@ -434,6 +449,11 @@ def _execute_tool(
             result = query_delay_ripple(
                 delayed_station_id=params["station_id"],
                 hops=params.get("hops", 2),
+            )
+
+        elif tool_name == "get_station_connections":
+            result = query_station_connections(
+                station_id=params["station_id"],
             )
 
         else:
