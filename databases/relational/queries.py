@@ -39,6 +39,11 @@ def _connect():
     """Return a new psycopg2 connection with autocommit enabled."""
     conn = psycopg2.connect(PG_DSN)
     conn.autocommit = True
+    # Register Decimal → float adapter so JSON serialisation never fails
+    psycopg2.extensions.register_adapter(
+        __import__("decimal").Decimal,
+        lambda d: psycopg2.extensions.AsIs(float(d))
+    )
     return conn
 
 
