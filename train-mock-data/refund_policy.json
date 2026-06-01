@@ -170,5 +170,59 @@
       }
     ],
     "exclusions": "Delays caused by third-party events (extreme weather, security incidents, government directives, or passenger-caused incidents) are not eligible for compensation."
+  },
+  {
+    "policy_id": "RF006",
+    "label": "Railcard & Concession Refunds – All Networks",
+    "applies_to": {
+      "network_type": "all",
+      "service_type": "all",
+      "ticket_types": ["single", "return", "day_pass"],
+      "passenger_categories": ["senior", "student", "child", "disabled"]
+    },
+    "cancellation_windows": [
+      {
+        "window_id": "RF006_W1",
+        "label": "Concession early cancellation",
+        "condition": "Cancellation requested 24 or more hours before scheduled departure on a discounted (railcard or concession) ticket",
+        "hours_before_departure_min": 24,
+        "hours_before_departure_max": null,
+        "refund_percent": 100,
+        "admin_fee_usd": 0.5
+      },
+      {
+        "window_id": "RF006_W2",
+        "label": "Concession late cancellation",
+        "condition": "Cancellation requested less than 24 hours before scheduled departure on a discounted ticket",
+        "hours_before_departure_min": 0,
+        "hours_before_departure_max": 24,
+        "refund_percent": 50,
+        "admin_fee_usd": 0.5
+      }
+    ],
+    "notes": "Discounted fares purchased with a valid railcard or concession entitlement are refunded against the discounted price actually paid, not the full adult fare. A flat $0.50 administration fee applies to every concession refund. The railcard itself is non-refundable once issued.",
+    "exclusions": "Refunds are void if the railcard or concession entitlement was expired or invalid at the time of travel."
+  },
+  {
+    "policy_id": "RF007",
+    "label": "Missed Train & No-Show – All Networks",
+    "applies_to": {
+      "network_type": "all",
+      "service_type": "all",
+      "ticket_types": ["single", "return"]
+    },
+    "cancellation_windows": [
+      {
+        "window_id": "RF007_W1",
+        "label": "No-show",
+        "condition": "Passenger does not cancel before departure and does not board the booked service",
+        "hours_before_departure_min": null,
+        "hours_before_departure_max": 0,
+        "refund_percent": 0,
+        "admin_fee_usd": 0.0
+      }
+    ],
+    "notes": "A no-show (failing to cancel before the scheduled departure) forfeits the full fare with no refund. If the train was missed because of a connecting service that was itself delayed by the operator, passengers may instead claim under the Delay Compensation policy (RF005). National rail single and return tickets can be changed up to 24 hours before departure for a $1.00 change fee — changing the ticket in advance avoids a total loss.",
+    "exclusions": "No exceptions are made for a missed metro day pass, which is valid for the travel date only and carries no per-journey refund."
   }
 ]

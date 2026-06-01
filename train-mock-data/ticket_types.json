@@ -73,5 +73,51 @@
       "refund_rule": "RF004",
       "notes": "A day pass offers better value than individual single tickets for passengers making 3 or more metro trips in a day. Tap in and out normally at each station."
     }
+  },
+  {
+    "ticket_type": "off_peak_return",
+    "display_name": "Off-Peak Return Ticket",
+    "available_on": ["national_rail"],
+    "description": "A discounted return ticket valid for outward and return journeys made outside peak hours. Cheaper than a standard return but restricted to off-peak services only.",
+    "national_rail": {
+      "pricing_model": "stops_based_with_fare_class",
+      "formula": "amount = (base_fare_usd + (stops_travelled × per_stop_rate_usd)) × 1.6 off-peak return multiplier",
+      "example": "Two single legs that would each cost $3.30 combine into an off-peak return at roughly $5.30 instead of $6.60.",
+      "fare_classes": ["standard", "first"],
+      "peak_hours": "07:00–09:30 and 17:00–19:30, Monday to Friday",
+      "peak_hour_rule": "Off-peak return tickets are NOT valid on services departing during peak hours. Travelling on a peak service requires upgrading to a standard return and paying the fare difference plus a $1.00 change fee.",
+      "seat_assignment": true,
+      "validity": "Outward travel on the selected date; return journey valid for 30 days on any off-peak service.",
+      "advance_purchase": true,
+      "advance_purchase_max_days": 90,
+      "changes_allowed": true,
+      "change_fee_usd": 1.0,
+      "change_deadline": "At least 24 hours before scheduled departure",
+      "transferable": false,
+      "refundable": true,
+      "refund_rule": "RF001 (normal service), RF002 (express service)",
+      "notes": "Best value for leisure travellers with flexible timing. Not suitable for commuters who must travel during peak hours."
+    }
+  },
+  {
+    "ticket_type": "metro_weekly_pass",
+    "display_name": "Metro Weekly Pass",
+    "available_on": ["metro"],
+    "description": "An unlimited-travel pass valid on all metro lines for 7 consecutive days from the first day of use. Designed for regular commuters.",
+    "metro": {
+      "pricing_model": "flat_period",
+      "formula": "amount = flat_weekly_fee_usd (independent of number of trips or stops)",
+      "example": "A flat $18.00 for 7 days of unlimited metro travel. Breaks even against single tickets at roughly 12 average journeys per week.",
+      "fare_class": null,
+      "seat_assignment": false,
+      "validity": "7 consecutive calendar days from first tap-in. Expires at midnight on the seventh day.",
+      "advance_purchase": true,
+      "advance_purchase_max_days": 30,
+      "changes_allowed": false,
+      "transferable": false,
+      "refundable": true,
+      "refund_rule": "RF004",
+      "notes": "Unlimited metro trips for 7 days. Not valid on national rail. A refund is only available if the pass is cancelled before its first tap-in; once activated it is non-refundable."
+    }
   }
 ]
