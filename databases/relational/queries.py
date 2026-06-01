@@ -39,12 +39,17 @@ def _connect():
     """Return a new psycopg2 connection with autocommit enabled."""
     conn = psycopg2.connect(PG_DSN)
     conn.autocommit = True
-    # Register Decimal → float adapter so JSON serialisation never fails
-    psycopg2.extensions.register_adapter(
-        __import__("decimal").Decimal,
-        lambda d: psycopg2.extensions.AsIs(float(d))
-    )
     return conn
+
+
+# Register a global type caster: NUMERIC/DECIMAL columns come back as float,
+# not Decimal — so all results are directly JSON-serialisable without extra steps.
+_DEC2FLOAT = psycopg2.extensions.new_type(
+    psycopg2.extensions.DECIMAL.values,
+    "DEC2FLOAT",
+    lambda value, curs: float(value) if value is not None else None,
+)
+psycopg2.extensions.register_type(_DEC2FLOAT)
 
 
 def _gen_booking_id() -> str:
