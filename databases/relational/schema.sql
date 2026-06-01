@@ -98,17 +98,26 @@ CREATE TABLE IF NOT EXISTS seats (
     PRIMARY KEY (layout_id, seat_id)
 );
 
+-- Users (no password stored here — credentials are in user_credentials table)
 CREATE TABLE IF NOT EXISTS users (
     user_id         VARCHAR(10)  PRIMARY KEY,
     full_name       VARCHAR(100) NOT NULL,
     email           VARCHAR(150) NOT NULL UNIQUE,
-    password        VARCHAR(200) NOT NULL,
     phone           VARCHAR(20),
     date_of_birth   DATE,
     secret_question TEXT,
     secret_answer   TEXT,
     registered_at   TIMESTAMPTZ,
     is_active       BOOLEAN      DEFAULT TRUE
+);
+
+-- User Credentials (separate table — password hash and salt never stored with user info)
+CREATE TABLE IF NOT EXISTS user_credentials (
+    user_id       VARCHAR(10)  PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    password_hash TEXT         NOT NULL,
+    salt          TEXT         NOT NULL,
+    created_at    TIMESTAMPTZ  DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ  DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS national_rail_bookings (

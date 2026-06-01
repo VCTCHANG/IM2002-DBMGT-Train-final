@@ -12,6 +12,7 @@ Safe to re-run: implement your inserts with ON CONFLICT DO NOTHING.
 import json
 import os
 import sys
+import bcrypt
 
 import psycopg2
 from psycopg2.extras import execute_values
@@ -168,18 +169,37 @@ def seed_seat_layouts(cur):
 
 def seed_users(cur):
     data = load("registered_users.json")
+    # Note: no password column — stored separately in user_credentials
     rows = [
-        (u["user_id"], u["full_name"], u["email"], u["password"],
+        (u["user_id"], u["full_name"], u["email"],
          u.get("phone"), u.get("date_of_birth"),
          u.get("secret_question"), u.get("secret_answer"),
          u.get("registered_at"), u.get("is_active", True))
         for u in data
     ]
     n = insert_many(cur, "users",
-                    ["user_id", "full_name", "email", "password", "phone",
+                    ["user_id", "full_name", "email", "phone",
                      "date_of_birth", "secret_question", "secret_answer",
                      "registered_at", "is_active"], rows)
     print(f"  users: {n} rows")
+
+
+def seed_user_credentials(cur):
+    """Hash each mock user's password with bcrypt and store in user_credentials.
+    Salt is stored separately from user info — never in the users table."""
+    data = load("registered_users.json")
+    rows = []
+    for u in data:
+        salt = bcrypt.gensalt()                          # unique random salt per user
+        password_hash = bcrypt.hashpw(u["password"].encode(), salt)
+        rows.append((
+            u["user_id"],
+            password_hash.decode(),  # store hash as string
+            salt.decode(),           # store salt separately
+        ))
+    n = insert_many(cur, "user_credentials",
+                    ["user_id", "password_hash", "salt"], rows)
+    print(f"  user_credentials: {n} rows")
 
 
 def seed_national_rail_bookings(cur):
@@ -259,6 +279,7 @@ def main():
         seed_national_rail_schedules(cur)
         seed_seat_layouts(cur)
         seed_users(cur)
+        seed_user_credentials(cur)   # must come after seed_users (FK dependency)
         seed_national_rail_bookings(cur)
         seed_metro_travels(cur)
         seed_payments(cur)
