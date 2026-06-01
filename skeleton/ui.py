@@ -159,7 +159,7 @@ def do_register(email, first_name, surname, year_of_birth, password, secret_ques
         )
 
     try:
-        year = int(year_of_birth)
+        year = int(str(year_of_birth).strip())
         if year < 1900 or year > 2015:
             raise ValueError
     except (ValueError, TypeError):
