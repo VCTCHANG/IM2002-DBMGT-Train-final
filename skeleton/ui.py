@@ -64,7 +64,7 @@ def clear_conversation():
 
 # ── Provider / model selection ────────────────────────────────────────────────
 
-_KNOWN_OLLAMA_MODELS = ["llama3.2:1b", "llama3.1:8b"]
+_KNOWN_OLLAMA_MODELS = ["llama3.2:1b", "llama3.2:3b", "llama3.1:8b"]
 
 
 def get_ollama_status():
@@ -84,7 +84,10 @@ def get_chat_model_choices() -> list:
 
 
 def get_initial_chat_model_value() -> str:
-    return "llama3.2:1b"
+    # Read from config so the dropdown matches whatever is set in .env
+    if llm.get_chat_provider() == "gemini":
+        return "gemini"
+    return llm.get_chat_model()
 
 
 def on_chat_model_change(value: str):
@@ -256,12 +259,12 @@ def hide_all_panels():
 # ── Example queries ────────────────────────────────────────────────────────────
 
 EXAMPLES = [
-    "What national rail trains run from Central (NR01) to Stonehaven (NR05)?",
-    "What is the fastest metro route from MS01 to MS14?",
-    "How do I get from Central Square (MS01) to Stonehaven (NR05)?",
-    "If Old Town station (NR03) is closed, what alternative routes exist from NR01 to NR05?",
-    "My train was delayed 45 minutes — what compensation am I entitled to?",
-    "What is the company policy on travelling with a bicycle on national rail?",
+    "trains NR01 to NR05",
+    "fastest route MS01 to MS14",
+    "how to get from MS01 to NR05",
+    "route NR01 to NR05 avoid NR03",
+    "refund policy for delayed train",
+    "can I bring a bicycle on national rail",
 ]
 
 
@@ -334,7 +337,7 @@ with gr.Blocks(title="TransitFlow") as demo:
 
             with gr.Row():
                 msg = gr.Textbox(
-                    placeholder="Ask e.g. 'Are there seats from London to Bristol?'",
+                    placeholder="e.g. 'trains NR01 to NR05' or 'fastest route MS01 to MS14'",
                     show_label=False,
                     scale=4,
                 )
