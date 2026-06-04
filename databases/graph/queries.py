@@ -172,14 +172,18 @@ def query_cheapest_route(
             return {"found": False, "origin_id": origin_id,
                     "destination_id": destination_id,
                     "total_fare_usd": None, "fare_class": fare_class,
-                    "stations": [], "legs": []}
+                    "path": [], "stations": [], "legs": []}
+        stations = _path_stations(rec["path"])
         return {
             "found": True,
             "origin_id": origin_id,
             "destination_id": destination_id,
             "fare_class": fare_class,
             "total_fare_usd": round(rec["weight"], 2),
-            "stations": _path_stations(rec["path"]),
+            # "path" is the canonical key (matches query_shortest_route);
+            # "stations" kept as an alias for backward compatibility.
+            "path": stations,
+            "stations": stations,
             "legs": _path_legs(rec["path"]),
         }
 
@@ -267,19 +271,23 @@ def query_interchange_path(origin_id: str, destination_id: str) -> dict:
         if rec is None:
             return {"found": False, "origin_id": origin_id,
                     "destination_id": destination_id,
-                    "total_time_min": None, "stations": [],
+                    "total_time_min": None, "path": [], "stations": [],
                     "interchange_points": [], "legs": []}
         legs = _path_legs(rec["path"])
         interchange_points = [
             {"from_id": leg["from_id"], "to_id": leg["to_id"]}
             for leg in legs if leg["link_type"] == "INTERCHANGE_TO"
         ]
+        stations = _path_stations(rec["path"])
         return {
             "found": True,
             "origin_id": origin_id,
             "destination_id": destination_id,
             "total_time_min": rec["weight"],
-            "stations": _path_stations(rec["path"]),
+            # "path" is the canonical key (matches query_shortest_route);
+            # "stations" kept as an alias for backward compatibility.
+            "path": stations,
+            "stations": stations,
             "interchange_points": interchange_points,
             "legs": legs,
         }
@@ -300,10 +308,13 @@ def query_delay_ripple(delayed_station_id: str, hops: int = 2) -> list[dict]:
         List of dicts: {station_id, name, hops_away, lines_affected}
     """
     hops = int(hops)
+    # Use *0..N so the delayed station itself is included at hops_away=0.
+    # hops=0 must therefore return ONLY the delayed station (no neighbours);
+    # we don't exclude self with `<> $id` for this reason.
     cypher = (
         "MATCH (s {station_id: $id}) "
-        "MATCH (n) WHERE n.station_id <> $id "
-        f"MATCH sp = shortestPath((s)-[:METRO_LINK|RAIL_LINK|INTERCHANGE_TO*1..{hops}]-(n)) "
+        "MATCH (n) "
+        f"MATCH sp = shortestPath((s)-[:METRO_LINK|RAIL_LINK|INTERCHANGE_TO*0..{hops}]-(n)) "
         "RETURN DISTINCT n.station_id AS station_id, n.name AS name, "
         "length(sp) AS hops_away, n.lines AS lines_affected "
         "ORDER BY hops_away, station_id"
