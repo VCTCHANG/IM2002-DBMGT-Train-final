@@ -524,6 +524,7 @@ def execute_booking(
             conn.commit()
             return True, {
                 "booking_id": booking_id,
+                "user_id": user_id,
                 "schedule_id": schedule_id,
                 "origin_station_id": origin_station_id,
                 "destination_station_id": destination_station_id,
