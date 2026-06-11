@@ -69,6 +69,8 @@ CREATE TABLE IF NOT EXISTS metro_schedule_stops (
     station_id              VARCHAR(10)  NOT NULL REFERENCES metro_stations(station_id) ON DELETE RESTRICT,
     stop_order              INTEGER      NOT NULL,  -- 0-based position in route
     travel_time_from_origin INTEGER      NOT NULL,  -- minutes from first stop
+    -- Composite PK on (schedule_id, station_id): each station appears at most once per schedule;
+    -- no surrogate key needed because the natural pair is already unique and stable.
     PRIMARY KEY (schedule_id, station_id)
 );
 
@@ -77,6 +79,7 @@ CREATE TABLE IF NOT EXISTS metro_schedule_stops (
 CREATE TABLE IF NOT EXISTS metro_schedule_operates_on (
     schedule_id  VARCHAR(20)  NOT NULL REFERENCES metro_schedules(schedule_id) ON DELETE CASCADE,
     day          VARCHAR(5)   NOT NULL,  -- 'mon','tue','wed','thu','fri','sat','sun'
+    -- Composite PK: a schedule runs on each day at most once; the pair is the natural unique key.
     PRIMARY KEY (schedule_id, day)
 );
 
@@ -107,6 +110,7 @@ CREATE TABLE IF NOT EXISTS national_rail_schedule_stops (
     station_id              VARCHAR(10)  NOT NULL REFERENCES national_rail_stations(station_id) ON DELETE RESTRICT,
     stop_order              INTEGER      NOT NULL,
     travel_time_from_origin INTEGER      NOT NULL,
+    -- Composite PK: same rationale as metro_schedule_stops — natural pair is unique and stable.
     PRIMARY KEY (schedule_id, station_id)
 );
 
@@ -114,6 +118,7 @@ CREATE TABLE IF NOT EXISTS national_rail_schedule_stops (
 CREATE TABLE IF NOT EXISTS national_rail_schedule_operates_on (
     schedule_id  VARCHAR(20)  NOT NULL REFERENCES national_rail_schedules(schedule_id) ON DELETE CASCADE,
     day          VARCHAR(5)   NOT NULL,
+    -- Composite PK: same rationale as metro_schedule_operates_on.
     PRIMARY KEY (schedule_id, day)
 );
 
@@ -121,6 +126,8 @@ CREATE TABLE IF NOT EXISTS national_rail_schedule_operates_on (
 --    Flat table — one row per seat avoids nested arrays and makes
 --    seat availability queries a simple NOT IN subquery.
 CREATE TABLE IF NOT EXISTS seat_layouts (
+    -- seat_id is only unique within a schedule (e.g. "A01" exists in both NR_SCH01 and NR_SCH02),
+    -- so a composite PK on (schedule_id, seat_id) is used instead of a surrogate key.
     seat_id      VARCHAR(10)  NOT NULL,
     schedule_id  VARCHAR(20)  NOT NULL REFERENCES national_rail_schedules(schedule_id) ON DELETE CASCADE,
     coach        VARCHAR(5)   NOT NULL,
@@ -188,6 +195,7 @@ CREATE TABLE IF NOT EXISTS national_rail_bookings (
 -- 8. Metro Travel History
 --    Soft delete: status column — same strategy as national_rail_bookings.
 CREATE TABLE IF NOT EXISTS metro_travels (
+    -- PK: app-generated VARCHAR ID with "MT" prefix for human-readable trip references.
     trip_id                 VARCHAR(20)  PRIMARY KEY,
     user_id                 VARCHAR(10)  NOT NULL REFERENCES users(user_id) ON DELETE RESTRICT,
     schedule_id             VARCHAR(20)  NOT NULL REFERENCES metro_schedules(schedule_id) ON DELETE RESTRICT,
@@ -209,6 +217,8 @@ CREATE TABLE IF NOT EXISTS metro_travels (
 --    PostgreSQL does not support polymorphic FKs, so referential integrity
 --    is enforced at the application layer in execute_booking / execute_cancellation.
 CREATE TABLE IF NOT EXISTS payments (
+    -- PK: app-generated VARCHAR ID with "PM-" prefix; matches the style of booking_id
+    -- for consistent human-readable references across all financial records.
     payment_id   VARCHAR(20)  PRIMARY KEY,
     booking_id   VARCHAR(20)  NOT NULL,   -- polymorphic: BK-*** or MT***
     amount_usd   NUMERIC(8,2) NOT NULL,
@@ -220,6 +230,7 @@ CREATE TABLE IF NOT EXISTS payments (
 -- 10. Feedback
 --     booking_id is polymorphic (same reason as payments — no FK).
 CREATE TABLE IF NOT EXISTS feedback (
+    -- PK: app-generated VARCHAR ID; VARCHAR over SERIAL so IDs are portable across environments.
     feedback_id   VARCHAR(20)  PRIMARY KEY,
     booking_id    VARCHAR(20)  NOT NULL,
     user_id       VARCHAR(10)  NOT NULL REFERENCES users(user_id) ON DELETE RESTRICT,
