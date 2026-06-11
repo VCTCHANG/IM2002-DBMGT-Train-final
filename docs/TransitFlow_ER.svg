@@ -1,0 +1,611 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2200 1560" font-family="Helvetica,Arial,sans-serif"><rect width="2200" height="1560" fill="white"/>
+<text x="1100.0" y="44" font-family="Helvetica,Arial,sans-serif" font-size="22" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">TransitFlow 資料庫 ER 圖（v3 — 與 databases/relational/schema.sql 完全同步）</text>
+<text x="1100.0" y="72" font-family="Helvetica,Arial,sans-serif" font-size="14" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">實線 = 資料庫 FK 約束　　虛線 = 應用層維護（多型 / 自參照 / 無 FK）　　每條關係線均標註基數符號與 1:N / 1:1 文字</text>
+<text x="1100.0" y="96" font-family="Helvetica,Arial,sans-serif" font-size="13" fill="#555" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">端點符號：‖ = 1　　○+鳥爪 = 0..N　　|+鳥爪 = 1..N　　|○ = 0..1　　（最小基數 1 為業務規則，由應用層保證）</text>
+<rect x="50" y="140" width="350" height="240" rx="14" fill="none" stroke="#aaa" stroke-width="1.2"/>
+<text x="225.0" y="132" font-family="Helvetica,Arial,sans-serif" font-size="15" font-weight="bold" fill="#666" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">RAG 向量資料（獨立）</text>
+<rect x="50" y="480" width="1110" height="290" rx="14" fill="none" stroke="#aaa" stroke-width="1.2"/>
+<text x="605.0" y="472" font-family="Helvetica,Arial,sans-serif" font-size="15" font-weight="bold" fill="#666" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">捷運路網</text>
+<rect x="50" y="905" width="1110" height="430" rx="14" fill="none" stroke="#aaa" stroke-width="1.2"/>
+<text x="605.0" y="897" font-family="Helvetica,Arial,sans-serif" font-size="15" font-weight="bold" fill="#666" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">鐵路網</text>
+<rect x="1320" y="120" width="760" height="420" rx="14" fill="none" stroke="#aaa" stroke-width="1.2"/>
+<text x="1700.0" y="112" font-family="Helvetica,Arial,sans-serif" font-size="15" font-weight="bold" fill="#666" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">使用者與帳務</text>
+<rect x="1710" y="605" width="370" height="730" rx="14" fill="none" stroke="#aaa" stroke-width="1.2"/>
+<text x="1895.0" y="597" font-family="Helvetica,Arial,sans-serif" font-size="15" font-weight="bold" fill="#666" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">訂票與旅程</text>
+<text x="225" y="355" font-family="Helvetica,Arial,sans-serif" font-size="11" font-style="italic" fill="#777" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">獨立資料表——無 FK 關聯（pgvector 餘弦相似度檢索）</text>
+<rect x="70" y="170" width="310" height="151" rx="6" fill="white" stroke="#666" stroke-width="1.3"/>
+<rect x="70" y="170" width="310" height="26" rx="6" fill="#e0e0e0" stroke="#666" stroke-width="1.3"/>
+<rect x="70" y="190" width="310" height="6" fill="#e0e0e0"/>
+<text x="225.0" y="188" font-size="13" font-weight="bold" text-anchor="middle" fill="#222">policy_documents</text>
+<text x="78" y="208.5" font-size="10" font-weight="bold" fill="#1a5">PK</text>
+<text x="100" y="208.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">id</text>
+<text x="372" y="208.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">serial</text>
+<text x="78" y="225.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">title</text>
+<text x="372" y="225.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(200)</text>
+<text x="78" y="242.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">category</text>
+<text x="372" y="242.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(50)</text>
+<text x="78" y="259.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">content</text>
+<text x="372" y="259.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">text</text>
+<text x="78" y="276.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">embedding</text>
+<text x="372" y="276.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">vector(768)</text>
+<text x="294.2" y="276.5" font-size="9" font-style="italic" fill="#b55" text-anchor="end">pgvector</text>
+<text x="78" y="293.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">source_file</text>
+<text x="372" y="293.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(200)</text>
+<text x="78" y="310.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">created_at</text>
+<text x="372" y="310.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">timestamptz</text>
+<rect x="70" y="560" width="300" height="134" rx="6" fill="white" stroke="#666" stroke-width="1.3"/>
+<rect x="70" y="560" width="300" height="26" rx="6" fill="#c8e6c9" stroke="#666" stroke-width="1.3"/>
+<rect x="70" y="580" width="300" height="6" fill="#c8e6c9"/>
+<text x="220.0" y="578" font-size="13" font-weight="bold" text-anchor="middle" fill="#222">metro_stations</text>
+<text x="78" y="598.5" font-size="10" font-weight="bold" fill="#1a5">PK</text>
+<text x="100" y="598.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">station_id</text>
+<text x="362" y="598.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(10)</text>
+<text x="78" y="615.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">name</text>
+<text x="362" y="615.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">text</text>
+<text x="78" y="632.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">lines</text>
+<text x="362" y="632.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">jsonb</text>
+<text x="78" y="649.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">is_interchange_metro</text>
+<text x="362" y="649.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">boolean</text>
+<text x="78" y="666.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">is_interchange_national_rail</text>
+<text x="362" y="666.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">boolean</text>
+<text x="78" y="683.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">interchange_nr_station_id</text>
+<text x="362" y="683.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(10)</text>
+<text x="284.2" y="683.5" font-size="9" font-style="italic" fill="#b55" text-anchor="end">no FK</text>
+<rect x="450" y="510" width="310" height="202" rx="6" fill="white" stroke="#666" stroke-width="1.3"/>
+<rect x="450" y="510" width="310" height="26" rx="6" fill="#c8e6c9" stroke="#666" stroke-width="1.3"/>
+<rect x="450" y="530" width="310" height="6" fill="#c8e6c9"/>
+<text x="605.0" y="528" font-size="13" font-weight="bold" text-anchor="middle" fill="#222">metro_schedules</text>
+<text x="458" y="548.5" font-size="10" font-weight="bold" fill="#1a5">PK</text>
+<text x="480" y="548.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">schedule_id</text>
+<text x="752" y="548.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="458" y="565.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">line</text>
+<text x="752" y="565.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(5)</text>
+<text x="458" y="582.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">direction</text>
+<text x="752" y="582.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="458" y="599.5" font-size="10" font-weight="bold" fill="#1a5">FK</text>
+<text x="478" y="599.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">origin_station_id</text>
+<text x="752" y="599.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(10)</text>
+<text x="674.2" y="599.5" font-size="9" font-style="italic" fill="#b55" text-anchor="end">nullable</text>
+<text x="458" y="616.5" font-size="10" font-weight="bold" fill="#1a5">FK</text>
+<text x="478" y="616.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">destination_station_id</text>
+<text x="752" y="616.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(10)</text>
+<text x="674.2" y="616.5" font-size="9" font-style="italic" fill="#b55" text-anchor="end">nullable</text>
+<text x="458" y="633.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">first_train_time</text>
+<text x="752" y="633.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">time</text>
+<text x="458" y="650.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">last_train_time</text>
+<text x="752" y="650.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">time</text>
+<text x="458" y="667.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">base_fare_usd</text>
+<text x="752" y="667.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">numeric(6,2)</text>
+<text x="458" y="684.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">per_stop_rate_usd</text>
+<text x="752" y="684.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">numeric(6,2)</text>
+<text x="458" y="701.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">frequency_min</text>
+<text x="752" y="701.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">integer</text>
+<rect x="850" y="510" width="290" height="66" rx="6" fill="white" stroke="#666" stroke-width="1.3"/>
+<rect x="850" y="510" width="290" height="26" rx="6" fill="#c8e6c9" stroke="#666" stroke-width="1.3"/>
+<rect x="850" y="530" width="290" height="6" fill="#c8e6c9"/>
+<text x="995.0" y="528" font-size="13" font-weight="bold" text-anchor="middle" fill="#222">metro_schedule_operates_on</text>
+<text x="858" y="548.5" font-size="10" font-weight="bold" fill="#1a5">PK,FK</text>
+<text x="896" y="548.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">schedule_id</text>
+<text x="1132" y="548.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="858" y="565.5" font-size="10" font-weight="bold" fill="#1a5">PK</text>
+<text x="880" y="565.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">day</text>
+<text x="1132" y="565.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(5)</text>
+<rect x="850" y="630" width="290" height="100" rx="6" fill="white" stroke="#666" stroke-width="1.3"/>
+<rect x="850" y="630" width="290" height="26" rx="6" fill="#c8e6c9" stroke="#666" stroke-width="1.3"/>
+<rect x="850" y="650" width="290" height="6" fill="#c8e6c9"/>
+<text x="995.0" y="648" font-size="13" font-weight="bold" text-anchor="middle" fill="#222">metro_schedule_stops</text>
+<text x="858" y="668.5" font-size="10" font-weight="bold" fill="#1a5">PK,FK</text>
+<text x="896" y="668.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">schedule_id</text>
+<text x="1132" y="668.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="858" y="685.5" font-size="10" font-weight="bold" fill="#1a5">PK,FK</text>
+<text x="896" y="685.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">station_id</text>
+<text x="1132" y="685.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(10)</text>
+<text x="858" y="702.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">stop_order</text>
+<text x="1132" y="702.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">integer</text>
+<text x="858" y="719.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">travel_time_from_origin</text>
+<text x="1132" y="719.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">integer</text>
+<rect x="70" y="1000" width="310" height="117" rx="6" fill="white" stroke="#666" stroke-width="1.3"/>
+<rect x="70" y="1000" width="310" height="26" rx="6" fill="#bbdefb" stroke="#666" stroke-width="1.3"/>
+<rect x="70" y="1020" width="310" height="6" fill="#bbdefb"/>
+<text x="225.0" y="1018" font-size="13" font-weight="bold" text-anchor="middle" fill="#222">national_rail_stations</text>
+<text x="78" y="1038.5" font-size="10" font-weight="bold" fill="#1a5">PK</text>
+<text x="100" y="1038.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">station_id</text>
+<text x="372" y="1038.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(10)</text>
+<text x="78" y="1055.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">name</text>
+<text x="372" y="1055.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">text</text>
+<text x="78" y="1072.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">lines</text>
+<text x="372" y="1072.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">jsonb</text>
+<text x="78" y="1089.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">is_interchange_metro</text>
+<text x="372" y="1089.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">boolean</text>
+<text x="78" y="1106.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">interchange_metro_station_id</text>
+<text x="372" y="1106.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(10)</text>
+<text x="294.2" y="1106.5" font-size="9" font-style="italic" fill="#b55" text-anchor="end">no FK</text>
+<rect x="450" y="940" width="320" height="253" rx="6" fill="white" stroke="#666" stroke-width="1.3"/>
+<rect x="450" y="940" width="320" height="26" rx="6" fill="#bbdefb" stroke="#666" stroke-width="1.3"/>
+<rect x="450" y="960" width="320" height="6" fill="#bbdefb"/>
+<text x="610.0" y="958" font-size="13" font-weight="bold" text-anchor="middle" fill="#222">national_rail_schedules</text>
+<text x="458" y="978.5" font-size="10" font-weight="bold" fill="#1a5">PK</text>
+<text x="480" y="978.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">schedule_id</text>
+<text x="762" y="978.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="458" y="995.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">line</text>
+<text x="762" y="995.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(5)</text>
+<text x="458" y="1012.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">service_type</text>
+<text x="762" y="1012.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="684.2" y="1012.5" font-size="9" font-style="italic" fill="#b55" text-anchor="end">normal/express</text>
+<text x="458" y="1029.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">direction</text>
+<text x="762" y="1029.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="458" y="1046.5" font-size="10" font-weight="bold" fill="#1a5">FK</text>
+<text x="478" y="1046.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">origin_station_id</text>
+<text x="762" y="1046.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(10)</text>
+<text x="684.2" y="1046.5" font-size="9" font-style="italic" fill="#b55" text-anchor="end">nullable</text>
+<text x="458" y="1063.5" font-size="10" font-weight="bold" fill="#1a5">FK</text>
+<text x="478" y="1063.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">destination_station_id</text>
+<text x="762" y="1063.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(10)</text>
+<text x="684.2" y="1063.5" font-size="9" font-style="italic" fill="#b55" text-anchor="end">nullable</text>
+<text x="458" y="1080.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">first_train_time</text>
+<text x="762" y="1080.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">time</text>
+<text x="458" y="1097.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">last_train_time</text>
+<text x="762" y="1097.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">time</text>
+<text x="458" y="1114.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">std_base_fare_usd</text>
+<text x="762" y="1114.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">numeric(6,2)</text>
+<text x="458" y="1131.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">std_per_stop_rate_usd</text>
+<text x="762" y="1131.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">numeric(6,2)</text>
+<text x="458" y="1148.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">first_base_fare_usd</text>
+<text x="762" y="1148.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">numeric(6,2)</text>
+<text x="458" y="1165.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">first_per_stop_rate_usd</text>
+<text x="762" y="1165.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">numeric(6,2)</text>
+<text x="458" y="1182.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">frequency_min</text>
+<text x="762" y="1182.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">integer</text>
+<rect x="850" y="940" width="300" height="66" rx="6" fill="white" stroke="#666" stroke-width="1.3"/>
+<rect x="850" y="940" width="300" height="26" rx="6" fill="#bbdefb" stroke="#666" stroke-width="1.3"/>
+<rect x="850" y="960" width="300" height="6" fill="#bbdefb"/>
+<text x="1000.0" y="958" font-size="13" font-weight="bold" text-anchor="middle" fill="#222">national_rail_schedule_operates_on</text>
+<text x="858" y="978.5" font-size="10" font-weight="bold" fill="#1a5">PK,FK</text>
+<text x="896" y="978.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">schedule_id</text>
+<text x="1142" y="978.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="858" y="995.5" font-size="10" font-weight="bold" fill="#1a5">PK</text>
+<text x="880" y="995.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">day</text>
+<text x="1142" y="995.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(5)</text>
+<rect x="850" y="1050" width="300" height="134" rx="6" fill="white" stroke="#666" stroke-width="1.3"/>
+<rect x="850" y="1050" width="300" height="26" rx="6" fill="#bbdefb" stroke="#666" stroke-width="1.3"/>
+<rect x="850" y="1070" width="300" height="6" fill="#bbdefb"/>
+<text x="1000.0" y="1068" font-size="13" font-weight="bold" text-anchor="middle" fill="#222">seat_layouts</text>
+<text x="858" y="1088.5" font-size="10" font-weight="bold" fill="#1a5">PK,FK</text>
+<text x="896" y="1088.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">schedule_id</text>
+<text x="1142" y="1088.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="858" y="1105.5" font-size="10" font-weight="bold" fill="#1a5">PK</text>
+<text x="880" y="1105.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">seat_id</text>
+<text x="1142" y="1105.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(10)</text>
+<text x="858" y="1122.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">coach</text>
+<text x="1142" y="1122.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(5)</text>
+<text x="858" y="1139.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">fare_class</text>
+<text x="1142" y="1139.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="1064.2" y="1139.5" font-size="9" font-style="italic" fill="#b55" text-anchor="end">standard/first</text>
+<text x="858" y="1156.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">row</text>
+<text x="1142" y="1156.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">integer</text>
+<text x="858" y="1173.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">col</text>
+<text x="1142" y="1173.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(5)</text>
+<rect x="850" y="1220" width="300" height="100" rx="6" fill="white" stroke="#666" stroke-width="1.3"/>
+<rect x="850" y="1220" width="300" height="26" rx="6" fill="#bbdefb" stroke="#666" stroke-width="1.3"/>
+<rect x="850" y="1240" width="300" height="6" fill="#bbdefb"/>
+<text x="1000.0" y="1238" font-size="13" font-weight="bold" text-anchor="middle" fill="#222">national_rail_schedule_stops</text>
+<text x="858" y="1258.5" font-size="10" font-weight="bold" fill="#1a5">PK,FK</text>
+<text x="896" y="1258.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">schedule_id</text>
+<text x="1142" y="1258.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="858" y="1275.5" font-size="10" font-weight="bold" fill="#1a5">PK,FK</text>
+<text x="896" y="1275.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">station_id</text>
+<text x="1142" y="1275.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(10)</text>
+<text x="858" y="1292.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">stop_order</text>
+<text x="1142" y="1292.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">integer</text>
+<text x="858" y="1309.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">travel_time_from_origin</text>
+<text x="1142" y="1309.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">integer</text>
+<rect x="1340" y="150" width="300" height="168" rx="6" fill="white" stroke="#666" stroke-width="1.3"/>
+<rect x="1340" y="150" width="300" height="26" rx="6" fill="#d1c4e9" stroke="#666" stroke-width="1.3"/>
+<rect x="1340" y="170" width="300" height="6" fill="#d1c4e9"/>
+<text x="1490.0" y="168" font-size="13" font-weight="bold" text-anchor="middle" fill="#222">users</text>
+<text x="1348" y="188.5" font-size="10" font-weight="bold" fill="#1a5">PK</text>
+<text x="1370" y="188.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">user_id</text>
+<text x="1632" y="188.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(10)</text>
+<text x="1348" y="205.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">full_name</text>
+<text x="1632" y="205.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">text</text>
+<text x="1348" y="222.5" font-size="10" font-weight="bold" fill="#1a5">UK</text>
+<text x="1368" y="222.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">email</text>
+<text x="1632" y="222.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(200)</text>
+<text x="1348" y="239.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">phone</text>
+<text x="1632" y="239.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="1348" y="256.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">date_of_birth</text>
+<text x="1632" y="256.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">date</text>
+<text x="1348" y="273.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">secret_question</text>
+<text x="1632" y="273.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">text</text>
+<text x="1594.8" y="273.5" font-size="9" font-style="italic" fill="#b55" text-anchor="end">公開·非機密</text>
+<text x="1348" y="290.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">registered_at</text>
+<text x="1632" y="290.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">timestamptz</text>
+<text x="1348" y="307.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">is_active</text>
+<text x="1632" y="307.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">boolean</text>
+<text x="1577.4" y="307.5" font-size="9" font-style="italic" fill="#b55" text-anchor="end">soft delete</text>
+<rect x="1740" y="150" width="320" height="134" rx="6" fill="white" stroke="#666" stroke-width="1.3"/>
+<rect x="1740" y="150" width="320" height="26" rx="6" fill="#d1c4e9" stroke="#666" stroke-width="1.3"/>
+<rect x="1740" y="170" width="320" height="6" fill="#d1c4e9"/>
+<text x="1900.0" y="168" font-size="13" font-weight="bold" text-anchor="middle" fill="#222">user_credentials</text>
+<text x="1748" y="188.5" font-size="10" font-weight="bold" fill="#1a5">PK,FK</text>
+<text x="1786" y="188.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">user_id</text>
+<text x="2052" y="188.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(10)</text>
+<text x="1748" y="205.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">password_hash</text>
+<text x="2052" y="205.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">text</text>
+<text x="2014.8" y="205.5" font-size="9" font-style="italic" fill="#b55" text-anchor="end">bcrypt</text>
+<text x="1748" y="222.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">salt</text>
+<text x="2052" y="222.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">text</text>
+<text x="2014.8" y="222.5" font-size="9" font-style="italic" fill="#b55" text-anchor="end">bcrypt salt</text>
+<text x="1748" y="239.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">secret_answer_hash</text>
+<text x="2052" y="239.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">text</text>
+<text x="2014.8" y="239.5" font-size="9" font-style="italic" fill="#b55" text-anchor="end">bcrypt·trim+lower</text>
+<text x="1748" y="256.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">created_at</text>
+<text x="2052" y="256.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">timestamptz</text>
+<text x="1748" y="273.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">updated_at</text>
+<text x="2052" y="273.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">timestamptz</text>
+<rect x="1340" y="380" width="300" height="134" rx="6" fill="white" stroke="#666" stroke-width="1.3"/>
+<rect x="1340" y="380" width="300" height="26" rx="6" fill="#d1c4e9" stroke="#666" stroke-width="1.3"/>
+<rect x="1340" y="400" width="300" height="6" fill="#d1c4e9"/>
+<text x="1490.0" y="398" font-size="13" font-weight="bold" text-anchor="middle" fill="#222">payments</text>
+<text x="1348" y="418.5" font-size="10" font-weight="bold" fill="#1a5">PK</text>
+<text x="1370" y="418.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">payment_id</text>
+<text x="1632" y="418.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="1348" y="435.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">booking_id</text>
+<text x="1632" y="435.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="1554.2" y="435.5" font-size="9" font-style="italic" fill="#b55" text-anchor="end">多型·no FK</text>
+<text x="1348" y="452.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">amount_usd</text>
+<text x="1632" y="452.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">numeric(8,2)</text>
+<text x="1348" y="469.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">method</text>
+<text x="1632" y="469.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(50)</text>
+<text x="1348" y="486.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">status</text>
+<text x="1632" y="486.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="1348" y="503.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">paid_at</text>
+<text x="1632" y="503.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">timestamptz</text>
+<rect x="1740" y="380" width="320" height="134" rx="6" fill="white" stroke="#666" stroke-width="1.3"/>
+<rect x="1740" y="380" width="320" height="26" rx="6" fill="#d1c4e9" stroke="#666" stroke-width="1.3"/>
+<rect x="1740" y="400" width="320" height="6" fill="#d1c4e9"/>
+<text x="1900.0" y="398" font-size="13" font-weight="bold" text-anchor="middle" fill="#222">feedback</text>
+<text x="1748" y="418.5" font-size="10" font-weight="bold" fill="#1a5">PK</text>
+<text x="1770" y="418.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">feedback_id</text>
+<text x="2052" y="418.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="1748" y="435.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">booking_id</text>
+<text x="2052" y="435.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="1974.2" y="435.5" font-size="9" font-style="italic" fill="#b55" text-anchor="end">多型·no FK</text>
+<text x="1748" y="452.5" font-size="10" font-weight="bold" fill="#1a5">FK</text>
+<text x="1768" y="452.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">user_id</text>
+<text x="2052" y="452.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(10)</text>
+<text x="1748" y="469.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">rating</text>
+<text x="2052" y="469.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">integer</text>
+<text x="1997.4" y="469.5" font-size="9" font-style="italic" fill="#b55" text-anchor="end">CHECK 1–5</text>
+<text x="1748" y="486.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">comment</text>
+<text x="2052" y="486.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">text</text>
+<text x="1748" y="503.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">submitted_at</text>
+<text x="2052" y="503.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">timestamptz</text>
+<rect x="1740" y="640" width="310" height="253" rx="6" fill="white" stroke="#666" stroke-width="1.3"/>
+<rect x="1740" y="640" width="310" height="26" rx="6" fill="#ffccbc" stroke="#666" stroke-width="1.3"/>
+<rect x="1740" y="660" width="310" height="6" fill="#ffccbc"/>
+<text x="1895.0" y="658" font-size="13" font-weight="bold" text-anchor="middle" fill="#222">metro_travels</text>
+<text x="1748" y="678.5" font-size="10" font-weight="bold" fill="#1a5">PK</text>
+<text x="1770" y="678.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">trip_id</text>
+<text x="2042" y="678.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="1748" y="695.5" font-size="10" font-weight="bold" fill="#1a5">FK</text>
+<text x="1768" y="695.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">user_id</text>
+<text x="2042" y="695.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(10)</text>
+<text x="1748" y="712.5" font-size="10" font-weight="bold" fill="#1a5">FK</text>
+<text x="1768" y="712.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">schedule_id</text>
+<text x="2042" y="712.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="1748" y="729.5" font-size="10" font-weight="bold" fill="#1a5">FK</text>
+<text x="1768" y="729.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">origin_station_id</text>
+<text x="2042" y="729.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(10)</text>
+<text x="1748" y="746.5" font-size="10" font-weight="bold" fill="#1a5">FK</text>
+<text x="1768" y="746.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">destination_station_id</text>
+<text x="2042" y="746.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(10)</text>
+<text x="1748" y="763.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">travel_date</text>
+<text x="2042" y="763.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">date</text>
+<text x="1748" y="780.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">ticket_type</text>
+<text x="2042" y="780.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="1964.2" y="780.5" font-size="9" font-style="italic" fill="#b55" text-anchor="end">single/day_pass</text>
+<text x="1748" y="797.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">day_pass_ref</text>
+<text x="2042" y="797.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="1964.2" y="797.5" font-size="9" font-style="italic" fill="#b55" text-anchor="end">self-ref·no FK</text>
+<text x="1748" y="814.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">stops_travelled</text>
+<text x="2042" y="814.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">integer</text>
+<text x="1748" y="831.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">amount_usd</text>
+<text x="2042" y="831.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">numeric(8,2)</text>
+<text x="1748" y="848.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">status</text>
+<text x="2042" y="848.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="1964.2" y="848.5" font-size="9" font-style="italic" fill="#b55" text-anchor="end">soft delete</text>
+<text x="1748" y="865.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">purchased_at</text>
+<text x="2042" y="865.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">timestamptz</text>
+<text x="1748" y="882.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">travelled_at</text>
+<text x="2042" y="882.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">timestamptz</text>
+<rect x="1740" y="980" width="310" height="304" rx="6" fill="white" stroke="#666" stroke-width="1.3"/>
+<rect x="1740" y="980" width="310" height="26" rx="6" fill="#ffccbc" stroke="#666" stroke-width="1.3"/>
+<rect x="1740" y="1000" width="310" height="6" fill="#ffccbc"/>
+<text x="1895.0" y="998" font-size="13" font-weight="bold" text-anchor="middle" fill="#222">national_rail_bookings</text>
+<text x="1748" y="1018.5" font-size="10" font-weight="bold" fill="#1a5">PK</text>
+<text x="1770" y="1018.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">booking_id</text>
+<text x="2042" y="1018.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="1748" y="1035.5" font-size="10" font-weight="bold" fill="#1a5">FK</text>
+<text x="1768" y="1035.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">user_id</text>
+<text x="2042" y="1035.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(10)</text>
+<text x="1748" y="1052.5" font-size="10" font-weight="bold" fill="#1a5">FK</text>
+<text x="1768" y="1052.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">schedule_id</text>
+<text x="2042" y="1052.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="1748" y="1069.5" font-size="10" font-weight="bold" fill="#1a5">FK</text>
+<text x="1768" y="1069.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">origin_station_id</text>
+<text x="2042" y="1069.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(10)</text>
+<text x="1748" y="1086.5" font-size="10" font-weight="bold" fill="#1a5">FK</text>
+<text x="1768" y="1086.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">destination_station_id</text>
+<text x="2042" y="1086.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(10)</text>
+<text x="1748" y="1103.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">travel_date</text>
+<text x="2042" y="1103.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">date</text>
+<text x="1748" y="1120.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">departure_time</text>
+<text x="2042" y="1120.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">time</text>
+<text x="1748" y="1137.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">ticket_type</text>
+<text x="2042" y="1137.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="1964.2" y="1137.5" font-size="9" font-style="italic" fill="#b55" text-anchor="end">single/return</text>
+<text x="1748" y="1154.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">fare_class</text>
+<text x="2042" y="1154.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="1964.2" y="1154.5" font-size="9" font-style="italic" fill="#b55" text-anchor="end">standard/first</text>
+<text x="1748" y="1171.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">coach</text>
+<text x="2042" y="1171.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(5)</text>
+<text x="1748" y="1188.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">seat_id</text>
+<text x="2042" y="1188.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(10)</text>
+<text x="1964.2" y="1188.5" font-size="9" font-style="italic" fill="#b55" text-anchor="end">no FK→seat_layouts</text>
+<text x="1748" y="1205.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">stops_travelled</text>
+<text x="2042" y="1205.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">integer</text>
+<text x="1748" y="1222.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">amount_usd</text>
+<text x="2042" y="1222.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">numeric(8,2)</text>
+<text x="1748" y="1239.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">status</text>
+<text x="2042" y="1239.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">varchar(20)</text>
+<text x="1964.2" y="1239.5" font-size="9" font-style="italic" fill="#b55" text-anchor="end">soft delete</text>
+<text x="1748" y="1256.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">booked_at</text>
+<text x="2042" y="1256.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">timestamptz</text>
+<text x="1748" y="1273.5" font-size="10.5" font-family="Menlo,monospace" fill="#222">travelled_at</text>
+<text x="2042" y="1273.5" font-size="9.5" font-family="Menlo,monospace" fill="#888" text-anchor="end">timestamptz</text>
+<text x="995" y="752" font-family="Helvetica,Arial,sans-serif" font-size="10" font-style="italic" fill="#777" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">junction：解開 stations↔schedules 的 M:N（3NF）</text>
+<text x="1000" y="1342" font-family="Helvetica,Arial,sans-serif" font-size="10" font-style="italic" fill="#777" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">junction：解開 stations↔schedules 的 M:N（3NF）</text>
+<path d="M 396 594.5 L 396 586.5 Q 396 595.5 405 595.5 L 424 595.5" fill="none" stroke="#555" stroke-width="1.5"/>
+<line x1="380" y1="588.5" x2="380" y2="600.5" stroke="#444" stroke-width="1.6"/>
+<line x1="386" y1="588.5" x2="386" y2="600.5" stroke="#444" stroke-width="1.6"/>
+<line x1="435" y1="595.5" x2="448" y2="589.5" stroke="#444" stroke-width="1.4"/>
+<line x1="435" y1="595.5" x2="448" y2="595.5" stroke="#444" stroke-width="1.4"/>
+<line x1="435" y1="595.5" x2="448" y2="601.5" stroke="#444" stroke-width="1.4"/>
+<circle cx="430" cy="595.5" r="4" fill="white" stroke="#444" stroke-width="1.4"/>
+<text x="404" y="587.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5"></text>
+<text x="416" y="588.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="end" paint-order="stroke" stroke="white" stroke-width="3.5"></text>
+<text x="0" y="0" font-family="Helvetica,Arial,sans-serif" font-size="11" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5"></text>
+<text x="410" y="588" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">origin / dest</text>
+<text x="410" y="601" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">×2 FK · 1:N</text>
+<path d="M 786 561.5 L 824 561.5" fill="none" stroke="#555" stroke-width="1.5"/>
+<line x1="770" y1="555.5" x2="770" y2="567.5" stroke="#444" stroke-width="1.6"/>
+<line x1="776" y1="555.5" x2="776" y2="567.5" stroke="#444" stroke-width="1.6"/>
+<line x1="835" y1="561.5" x2="848" y2="555.5" stroke="#444" stroke-width="1.4"/>
+<line x1="835" y1="561.5" x2="848" y2="561.5" stroke="#444" stroke-width="1.4"/>
+<line x1="835" y1="561.5" x2="848" y2="567.5" stroke="#444" stroke-width="1.4"/>
+<line x1="831" y1="555.5" x2="831" y2="567.5" stroke="#444" stroke-width="1.6"/>
+<text x="794" y="554.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5">1</text>
+<text x="816" y="554.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="end" paint-order="stroke" stroke="white" stroke-width="3.5">1..N</text>
+<text x="805" y="530" font-family="Helvetica,Arial,sans-serif" font-size="11" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">runs on · 1:N</text>
+<path d="M 786 646.5 L 786 655.5 Q 786 664.5 795 664.5 L 824 664.5" fill="none" stroke="#555" stroke-width="1.5"/>
+<line x1="770" y1="640.5" x2="770" y2="652.5" stroke="#444" stroke-width="1.6"/>
+<line x1="776" y1="640.5" x2="776" y2="652.5" stroke="#444" stroke-width="1.6"/>
+<line x1="835" y1="664.5" x2="848" y2="658.5" stroke="#444" stroke-width="1.4"/>
+<line x1="835" y1="664.5" x2="848" y2="664.5" stroke="#444" stroke-width="1.4"/>
+<line x1="835" y1="664.5" x2="848" y2="670.5" stroke="#444" stroke-width="1.4"/>
+<line x1="831" y1="658.5" x2="831" y2="670.5" stroke="#444" stroke-width="1.6"/>
+<text x="794" y="639.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5">1</text>
+<text x="816" y="657.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="end" paint-order="stroke" stroke="white" stroke-width="3.5">1..N</text>
+<text x="805" y="630" font-family="Helvetica,Arial,sans-serif" font-size="11" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">has stops · 1:N</text>
+<path d="M 396 662.5 L 403 662.5 Q 412 662.5 412 671.5 L 412 733 Q 412 742 421 742 L 809 742 Q 818 742 818 733 L 818 690.5 Q 818 681.5 827 681.5 L 824 681.5" fill="none" stroke="#555" stroke-width="1.5"/>
+<line x1="380" y1="656.5" x2="380" y2="668.5" stroke="#444" stroke-width="1.6"/>
+<line x1="386" y1="656.5" x2="386" y2="668.5" stroke="#444" stroke-width="1.6"/>
+<line x1="835" y1="681.5" x2="848" y2="675.5" stroke="#444" stroke-width="1.4"/>
+<line x1="835" y1="681.5" x2="848" y2="681.5" stroke="#444" stroke-width="1.4"/>
+<line x1="835" y1="681.5" x2="848" y2="687.5" stroke="#444" stroke-width="1.4"/>
+<circle cx="830" cy="681.5" r="4" fill="white" stroke="#444" stroke-width="1.4"/>
+<text x="404" y="655.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5">1</text>
+<text x="816" y="674.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="end" paint-order="stroke" stroke="white" stroke-width="3.5">0..N</text>
+<text x="600" y="735" font-family="Helvetica,Arial,sans-serif" font-size="11" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">stops at · 1:N</text>
+<path d="M 406 1034.5 L 406 1033.5 Q 406 1042.5 415 1042.5 L 424 1042.5" fill="none" stroke="#555" stroke-width="1.5"/>
+<line x1="390" y1="1028.5" x2="390" y2="1040.5" stroke="#444" stroke-width="1.6"/>
+<line x1="396" y1="1028.5" x2="396" y2="1040.5" stroke="#444" stroke-width="1.6"/>
+<line x1="435" y1="1042.5" x2="448" y2="1036.5" stroke="#444" stroke-width="1.4"/>
+<line x1="435" y1="1042.5" x2="448" y2="1042.5" stroke="#444" stroke-width="1.4"/>
+<line x1="435" y1="1042.5" x2="448" y2="1048.5" stroke="#444" stroke-width="1.4"/>
+<circle cx="430" cy="1042.5" r="4" fill="white" stroke="#444" stroke-width="1.4"/>
+<text x="414" y="1027.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5"></text>
+<text x="416" y="1035.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="end" paint-order="stroke" stroke="white" stroke-width="3.5"></text>
+<text x="0" y="0" font-family="Helvetica,Arial,sans-serif" font-size="11" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5"></text>
+<text x="415" y="1018" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">origin / dest</text>
+<text x="415" y="1031" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">×2 FK · 1:N</text>
+<path d="M 796 991.5 L 824 991.5" fill="none" stroke="#555" stroke-width="1.5"/>
+<line x1="780" y1="985.5" x2="780" y2="997.5" stroke="#444" stroke-width="1.6"/>
+<line x1="786" y1="985.5" x2="786" y2="997.5" stroke="#444" stroke-width="1.6"/>
+<line x1="835" y1="991.5" x2="848" y2="985.5" stroke="#444" stroke-width="1.4"/>
+<line x1="835" y1="991.5" x2="848" y2="991.5" stroke="#444" stroke-width="1.4"/>
+<line x1="835" y1="991.5" x2="848" y2="997.5" stroke="#444" stroke-width="1.4"/>
+<line x1="831" y1="985.5" x2="831" y2="997.5" stroke="#444" stroke-width="1.6"/>
+<text x="804" y="984.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5">1</text>
+<text x="816" y="984.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="end" paint-order="stroke" stroke="white" stroke-width="3.5">1..N</text>
+<text x="805" y="960" font-family="Helvetica,Arial,sans-serif" font-size="11" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">runs on · 1:N</text>
+<path d="M 796 1110.5 L 796 1093.5 Q 796 1084.5 805 1084.5 L 824 1084.5" fill="none" stroke="#555" stroke-width="1.5"/>
+<line x1="780" y1="1104.5" x2="780" y2="1116.5" stroke="#444" stroke-width="1.6"/>
+<line x1="786" y1="1104.5" x2="786" y2="1116.5" stroke="#444" stroke-width="1.6"/>
+<line x1="835" y1="1084.5" x2="848" y2="1078.5" stroke="#444" stroke-width="1.4"/>
+<line x1="835" y1="1084.5" x2="848" y2="1084.5" stroke="#444" stroke-width="1.4"/>
+<line x1="835" y1="1084.5" x2="848" y2="1090.5" stroke="#444" stroke-width="1.4"/>
+<circle cx="830" cy="1084.5" r="4" fill="white" stroke="#444" stroke-width="1.4"/>
+<text x="804" y="1103.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5">1</text>
+<text x="816" y="1077.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="end" paint-order="stroke" stroke="white" stroke-width="3.5">0..N</text>
+<text x="805" y="1075" font-family="Helvetica,Arial,sans-serif" font-size="11" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">has seats · 1:N</text>
+<path d="M 796 1178.5 L 803 1178.5 Q 812 1178.5 812 1187.5 L 812 1238 Q 812 1247 812 1256 L 812 1245.5 Q 812 1254.5 821 1254.5 L 824 1254.5" fill="none" stroke="#555" stroke-width="1.5"/>
+<line x1="780" y1="1172.5" x2="780" y2="1184.5" stroke="#444" stroke-width="1.6"/>
+<line x1="786" y1="1172.5" x2="786" y2="1184.5" stroke="#444" stroke-width="1.6"/>
+<line x1="835" y1="1254.5" x2="848" y2="1248.5" stroke="#444" stroke-width="1.4"/>
+<line x1="835" y1="1254.5" x2="848" y2="1254.5" stroke="#444" stroke-width="1.4"/>
+<line x1="835" y1="1254.5" x2="848" y2="1260.5" stroke="#444" stroke-width="1.4"/>
+<line x1="831" y1="1248.5" x2="831" y2="1260.5" stroke="#444" stroke-width="1.6"/>
+<text x="804" y="1171.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5">1</text>
+<text x="816" y="1247.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="end" paint-order="stroke" stroke="white" stroke-width="3.5">1..N</text>
+<text x="800" y="1190" font-family="Helvetica,Arial,sans-serif" font-size="11" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">has stops · 1:N</text>
+<path d="M 406 1085.5 L 407 1085.5 Q 416 1085.5 416 1094.5 L 416 1351 Q 416 1360 425 1360 L 811 1360 Q 820 1360 820 1351 L 820 1280.5 Q 820 1271.5 829 1271.5 L 824 1271.5" fill="none" stroke="#555" stroke-width="1.5"/>
+<line x1="390" y1="1079.5" x2="390" y2="1091.5" stroke="#444" stroke-width="1.6"/>
+<line x1="396" y1="1079.5" x2="396" y2="1091.5" stroke="#444" stroke-width="1.6"/>
+<line x1="835" y1="1271.5" x2="848" y2="1265.5" stroke="#444" stroke-width="1.4"/>
+<line x1="835" y1="1271.5" x2="848" y2="1271.5" stroke="#444" stroke-width="1.4"/>
+<line x1="835" y1="1271.5" x2="848" y2="1277.5" stroke="#444" stroke-width="1.4"/>
+<circle cx="830" cy="1271.5" r="4" fill="white" stroke="#444" stroke-width="1.4"/>
+<text x="414" y="1078.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5">1</text>
+<text x="816" y="1264.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="end" paint-order="stroke" stroke="white" stroke-width="3.5">0..N</text>
+<text x="600" y="1352" font-family="Helvetica,Arial,sans-serif" font-size="11" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">stops at · 1:N</text>
+<path d="M 1666 184.5 L 1714 184.5" fill="none" stroke="#555" stroke-width="1.5"/>
+<line x1="1650" y1="178.5" x2="1650" y2="190.5" stroke="#444" stroke-width="1.6"/>
+<line x1="1656" y1="178.5" x2="1656" y2="190.5" stroke="#444" stroke-width="1.6"/>
+<line x1="1730" y1="178.5" x2="1730" y2="190.5" stroke="#444" stroke-width="1.6"/>
+<line x1="1724" y1="178.5" x2="1724" y2="190.5" stroke="#444" stroke-width="1.6"/>
+<text x="1674" y="177.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5">1</text>
+<text x="1706" y="177.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="end" paint-order="stroke" stroke="white" stroke-width="3.5">1</text>
+<text x="1690" y="168" font-family="Helvetica,Arial,sans-serif" font-size="11" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">has · 1:1</text>
+<path d="M 1666 303.5 L 1663 303.5 Q 1672 303.5 1672 312.5 L 1672 439.5 Q 1672 448.5 1681 448.5 L 1714 448.5" fill="none" stroke="#555" stroke-width="1.5"/>
+<line x1="1650" y1="297.5" x2="1650" y2="309.5" stroke="#444" stroke-width="1.6"/>
+<line x1="1656" y1="297.5" x2="1656" y2="309.5" stroke="#444" stroke-width="1.6"/>
+<line x1="1725" y1="448.5" x2="1738" y2="442.5" stroke="#444" stroke-width="1.4"/>
+<line x1="1725" y1="448.5" x2="1738" y2="448.5" stroke="#444" stroke-width="1.4"/>
+<line x1="1725" y1="448.5" x2="1738" y2="454.5" stroke="#444" stroke-width="1.4"/>
+<circle cx="1720" cy="448.5" r="4" fill="white" stroke="#444" stroke-width="1.4"/>
+<text x="1674" y="296.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5">1</text>
+<text x="1706" y="441.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="end" paint-order="stroke" stroke="white" stroke-width="3.5">0..N</text>
+<text x="1672" y="350" font-family="Helvetica,Arial,sans-serif" font-size="11" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">writes · 1:N</text>
+<path d="M 1666 269.5 L 1673 269.5 Q 1682 269.5 1682 278.5 L 1682 682.5 Q 1682 691.5 1691 691.5 L 1714 691.5" fill="none" stroke="#555" stroke-width="1.5"/>
+<line x1="1650" y1="263.5" x2="1650" y2="275.5" stroke="#444" stroke-width="1.6"/>
+<line x1="1656" y1="263.5" x2="1656" y2="275.5" stroke="#444" stroke-width="1.6"/>
+<line x1="1725" y1="691.5" x2="1738" y2="685.5" stroke="#444" stroke-width="1.4"/>
+<line x1="1725" y1="691.5" x2="1738" y2="691.5" stroke="#444" stroke-width="1.4"/>
+<line x1="1725" y1="691.5" x2="1738" y2="697.5" stroke="#444" stroke-width="1.4"/>
+<circle cx="1720" cy="691.5" r="4" fill="white" stroke="#444" stroke-width="1.4"/>
+<text x="1674" y="262.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5">1</text>
+<text x="1706" y="684.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="end" paint-order="stroke" stroke="white" stroke-width="3.5">0..N</text>
+<text x="1682" y="590" font-family="Helvetica,Arial,sans-serif" font-size="11" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">travels · 1:N</text>
+<path d="M 1666 286.5 L 1683 286.5 Q 1692 286.5 1692 295.5 L 1692 1022.5 Q 1692 1031.5 1701 1031.5 L 1714 1031.5" fill="none" stroke="#555" stroke-width="1.5"/>
+<line x1="1650" y1="280.5" x2="1650" y2="292.5" stroke="#444" stroke-width="1.6"/>
+<line x1="1656" y1="280.5" x2="1656" y2="292.5" stroke="#444" stroke-width="1.6"/>
+<line x1="1725" y1="1031.5" x2="1738" y2="1025.5" stroke="#444" stroke-width="1.4"/>
+<line x1="1725" y1="1031.5" x2="1738" y2="1031.5" stroke="#444" stroke-width="1.4"/>
+<line x1="1725" y1="1031.5" x2="1738" y2="1037.5" stroke="#444" stroke-width="1.4"/>
+<circle cx="1720" cy="1031.5" r="4" fill="white" stroke="#444" stroke-width="1.4"/>
+<text x="1674" y="279.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5">1</text>
+<text x="1706" y="1024.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="end" paint-order="stroke" stroke="white" stroke-width="3.5">0..N</text>
+<text x="1700" y="958" font-family="Helvetica,Arial,sans-serif" font-size="11" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">books · 1:N</text>
+<path d="M 786 544.5 L 791 544.5 Q 800 544.5 800 553.5 L 800 791 Q 800 800 809 800 L 1653 800 Q 1662 800 1662 791 L 1662 717.5 Q 1662 708.5 1671 708.5 L 1714 708.5" fill="none" stroke="#555" stroke-width="1.5"/>
+<line x1="770" y1="538.5" x2="770" y2="550.5" stroke="#444" stroke-width="1.6"/>
+<line x1="776" y1="538.5" x2="776" y2="550.5" stroke="#444" stroke-width="1.6"/>
+<line x1="1725" y1="708.5" x2="1738" y2="702.5" stroke="#444" stroke-width="1.4"/>
+<line x1="1725" y1="708.5" x2="1738" y2="708.5" stroke="#444" stroke-width="1.4"/>
+<line x1="1725" y1="708.5" x2="1738" y2="714.5" stroke="#444" stroke-width="1.4"/>
+<circle cx="1720" cy="708.5" r="4" fill="white" stroke="#444" stroke-width="1.4"/>
+<text x="794" y="537.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5">1</text>
+<text x="1706" y="701.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="end" paint-order="stroke" stroke="white" stroke-width="3.5">0..N</text>
+<text x="1250" y="793" font-family="Helvetica,Arial,sans-serif" font-size="11" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">travelled on · 1:N</text>
+<path d="M 396 645.5 L 393 645.5 Q 402 645.5 402 654.5 L 402 816 Q 402 825 411 825 L 1643 825 Q 1652 825 1652 816 L 1652 751.5 Q 1652 742.5 1661 742.5 L 1714 742.5" fill="none" stroke="#555" stroke-width="1.5"/>
+<line x1="380" y1="639.5" x2="380" y2="651.5" stroke="#444" stroke-width="1.6"/>
+<line x1="386" y1="639.5" x2="386" y2="651.5" stroke="#444" stroke-width="1.6"/>
+<line x1="1725" y1="742.5" x2="1738" y2="736.5" stroke="#444" stroke-width="1.4"/>
+<line x1="1725" y1="742.5" x2="1738" y2="742.5" stroke="#444" stroke-width="1.4"/>
+<line x1="1725" y1="742.5" x2="1738" y2="748.5" stroke="#444" stroke-width="1.4"/>
+<circle cx="1720" cy="742.5" r="4" fill="white" stroke="#444" stroke-width="1.4"/>
+<text x="404" y="638.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5">1</text>
+<text x="1706" y="735.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="end" paint-order="stroke" stroke="white" stroke-width="3.5">0..N</text>
+<text x="1250" y="818" font-family="Helvetica,Arial,sans-serif" font-size="11" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">origin / dest（×2 FK）· 1:N</text>
+<path d="M 796 974.5 L 791 974.5 Q 800 974.5 800 965.5 L 800 927 Q 800 918 809 918 L 1231 918 Q 1240 918 1240 927 L 1240 1381 Q 1240 1390 1249 1390 L 1703 1390 Q 1712 1390 1712 1381 L 1712 1057.5 Q 1712 1048.5 1721 1048.5 L 1714 1048.5" fill="none" stroke="#555" stroke-width="1.5"/>
+<line x1="780" y1="968.5" x2="780" y2="980.5" stroke="#444" stroke-width="1.6"/>
+<line x1="786" y1="968.5" x2="786" y2="980.5" stroke="#444" stroke-width="1.6"/>
+<line x1="1725" y1="1048.5" x2="1738" y2="1042.5" stroke="#444" stroke-width="1.4"/>
+<line x1="1725" y1="1048.5" x2="1738" y2="1048.5" stroke="#444" stroke-width="1.4"/>
+<line x1="1725" y1="1048.5" x2="1738" y2="1054.5" stroke="#444" stroke-width="1.4"/>
+<circle cx="1720" cy="1048.5" r="4" fill="white" stroke="#444" stroke-width="1.4"/>
+<text x="804" y="967.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5">1</text>
+<text x="1706" y="1041.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="end" paint-order="stroke" stroke="white" stroke-width="3.5">0..N</text>
+<text x="1430" y="1383" font-family="Helvetica,Arial,sans-serif" font-size="11" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">booked on · 1:N</text>
+<path d="M 406 1051.5 L 409 1051.5 Q 418 1051.5 418 1060.5 L 418 1409 Q 418 1418 427 1418 L 1693 1418 Q 1702 1418 1702 1409 L 1702 1091.5 Q 1702 1082.5 1711 1082.5 L 1714 1082.5" fill="none" stroke="#555" stroke-width="1.5"/>
+<line x1="390" y1="1045.5" x2="390" y2="1057.5" stroke="#444" stroke-width="1.6"/>
+<line x1="396" y1="1045.5" x2="396" y2="1057.5" stroke="#444" stroke-width="1.6"/>
+<line x1="1725" y1="1082.5" x2="1738" y2="1076.5" stroke="#444" stroke-width="1.4"/>
+<line x1="1725" y1="1082.5" x2="1738" y2="1082.5" stroke="#444" stroke-width="1.4"/>
+<line x1="1725" y1="1082.5" x2="1738" y2="1088.5" stroke="#444" stroke-width="1.4"/>
+<circle cx="1720" cy="1082.5" r="4" fill="white" stroke="#444" stroke-width="1.4"/>
+<text x="414" y="1044.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5">1</text>
+<text x="1706" y="1075.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="end" paint-order="stroke" stroke="white" stroke-width="3.5">0..N</text>
+<text x="1100" y="1411" font-family="Helvetica,Arial,sans-serif" font-size="11" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">origin / dest（×2 FK）· 1:N</text>
+<path d="M 1714 1014.5 L 1701 1014.5 Q 1692 1014.5 1692 1005.5 L 1692 440.5 Q 1692 431.5 1683 431.5 L 1666 431.5" fill="none" stroke="#555" stroke-width="1.5" stroke-dasharray="7 5"/>
+<line x1="1730" y1="1008.5" x2="1730" y2="1020.5" stroke="#444" stroke-width="1.6"/>
+<line x1="1724" y1="1008.5" x2="1724" y2="1020.5" stroke="#444" stroke-width="1.6"/>
+<line x1="1655" y1="431.5" x2="1642" y2="425.5" stroke="#444" stroke-width="1.4"/>
+<line x1="1655" y1="431.5" x2="1642" y2="431.5" stroke="#444" stroke-width="1.4"/>
+<line x1="1655" y1="431.5" x2="1642" y2="437.5" stroke="#444" stroke-width="1.4"/>
+<circle cx="1660" cy="431.5" r="4" fill="white" stroke="#444" stroke-width="1.4"/>
+<text x="1706" y="1007.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="end" paint-order="stroke" stroke="white" stroke-width="3.5">1</text>
+<text x="1674" y="424.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5">0..N</text>
+<text x="1545" y="905" font-family="Helvetica,Arial,sans-serif" font-size="11" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">app-level · booking_id 多型 · 1:N</text>
+<path d="M 1714 674.5 L 1671 674.5 Q 1662 674.5 1662 665.5 L 1662 491.5 Q 1662 482.5 1671 482.5 L 1666 482.5" fill="none" stroke="#555" stroke-width="1.5" stroke-dasharray="7 5"/>
+<line x1="1730" y1="668.5" x2="1730" y2="680.5" stroke="#444" stroke-width="1.6"/>
+<line x1="1724" y1="668.5" x2="1724" y2="680.5" stroke="#444" stroke-width="1.6"/>
+<line x1="1655" y1="482.5" x2="1642" y2="476.5" stroke="#444" stroke-width="1.4"/>
+<line x1="1655" y1="482.5" x2="1642" y2="482.5" stroke="#444" stroke-width="1.4"/>
+<line x1="1655" y1="482.5" x2="1642" y2="488.5" stroke="#444" stroke-width="1.4"/>
+<circle cx="1660" cy="482.5" r="4" fill="white" stroke="#444" stroke-width="1.4"/>
+<text x="1706" y="667.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="end" paint-order="stroke" stroke="white" stroke-width="3.5">1</text>
+<text x="1674" y="475.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5">0..N</text>
+<text x="1660" y="560" font-family="Helvetica,Arial,sans-serif" font-size="11" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">app-level · 1:N</text>
+<path d="M 2076 1014.5 L 2113 1014.5 Q 2122 1014.5 2122 1005.5 L 2122 440.5 Q 2122 431.5 2113 431.5 L 2086 431.5" fill="none" stroke="#555" stroke-width="1.5" stroke-dasharray="7 5"/>
+<line x1="2060" y1="1008.5" x2="2060" y2="1020.5" stroke="#444" stroke-width="1.6"/>
+<line x1="2066" y1="1008.5" x2="2066" y2="1020.5" stroke="#444" stroke-width="1.6"/>
+<line x1="2075" y1="431.5" x2="2062" y2="425.5" stroke="#444" stroke-width="1.4"/>
+<line x1="2075" y1="431.5" x2="2062" y2="431.5" stroke="#444" stroke-width="1.4"/>
+<line x1="2075" y1="431.5" x2="2062" y2="437.5" stroke="#444" stroke-width="1.4"/>
+<circle cx="2080" cy="431.5" r="4" fill="white" stroke="#444" stroke-width="1.4"/>
+<text x="2084" y="1007.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5">1</text>
+<text x="2094" y="424.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5">0..N</text>
+<text x="2120" y="938" font-family="Helvetica,Arial,sans-serif" font-size="11" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">booking_id 多型 · 1:N</text>
+<path d="M 2076 674.5 L 2097 674.5 Q 2106 674.5 2106 665.5 L 2106 491.5 Q 2106 482.5 2097 482.5 L 2086 482.5" fill="none" stroke="#555" stroke-width="1.5" stroke-dasharray="7 5"/>
+<line x1="2060" y1="668.5" x2="2060" y2="680.5" stroke="#444" stroke-width="1.6"/>
+<line x1="2066" y1="668.5" x2="2066" y2="680.5" stroke="#444" stroke-width="1.6"/>
+<line x1="2075" y1="482.5" x2="2062" y2="476.5" stroke="#444" stroke-width="1.4"/>
+<line x1="2075" y1="482.5" x2="2062" y2="482.5" stroke="#444" stroke-width="1.4"/>
+<line x1="2075" y1="482.5" x2="2062" y2="488.5" stroke="#444" stroke-width="1.4"/>
+<circle cx="2080" cy="482.5" r="4" fill="white" stroke="#444" stroke-width="1.4"/>
+<text x="2084" y="667.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5">1</text>
+<text x="2094" y="475.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5">0..N</text>
+<text x="2106" y="580" font-family="Helvetica,Arial,sans-serif" font-size="11" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">app-level · 1:N</text>
+<path d="M 44 679.5 L 45 679.5 Q 36 679.5 36 688.5 L 36 1093.5 Q 36 1102.5 45 1102.5 L 44 1102.5" fill="none" stroke="#555" stroke-width="1.5" stroke-dasharray="7 5"/>
+<line x1="62" y1="673.5" x2="62" y2="685.5" stroke="#444" stroke-width="1.6"/>
+<circle cx="53" cy="679.5" r="4" fill="white" stroke="#444" stroke-width="1.4"/>
+<line x1="62" y1="1096.5" x2="62" y2="1108.5" stroke="#444" stroke-width="1.6"/>
+<circle cx="53" cy="1102.5" r="4" fill="white" stroke="#444" stroke-width="1.4"/>
+<text x="36" y="672.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="end" paint-order="stroke" stroke="white" stroke-width="3.5">0..1</text>
+<text x="36" y="1095.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="end" paint-order="stroke" stroke="white" stroke-width="3.5">0..1</text>
+<text x="110" y="860" font-family="Helvetica,Arial,sans-serif" font-size="11" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">interchange · 0..1 : 0..1 · no FK</text>
+<path d="M 1714 1184.5 L 1249 1184.5 Q 1240 1184.5 1240 1175.5 L 1240 1110.5 Q 1240 1101.5 1231 1101.5 L 1176 1101.5" fill="none" stroke="#555" stroke-width="1.5" stroke-dasharray="7 5"/>
+<line x1="1725" y1="1184.5" x2="1738" y2="1178.5" stroke="#444" stroke-width="1.4"/>
+<line x1="1725" y1="1184.5" x2="1738" y2="1184.5" stroke="#444" stroke-width="1.4"/>
+<line x1="1725" y1="1184.5" x2="1738" y2="1190.5" stroke="#444" stroke-width="1.4"/>
+<circle cx="1720" cy="1184.5" r="4" fill="white" stroke="#444" stroke-width="1.4"/>
+<line x1="1160" y1="1095.5" x2="1160" y2="1107.5" stroke="#444" stroke-width="1.6"/>
+<line x1="1166" y1="1095.5" x2="1166" y2="1107.5" stroke="#444" stroke-width="1.6"/>
+<text x="1706" y="1177.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="end" paint-order="stroke" stroke="white" stroke-width="3.5">0..N</text>
+<text x="1184" y="1094.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5">1</text>
+<text x="1430" y="1155" font-family="Helvetica,Arial,sans-serif" font-size="11" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">seat assignment · app-level（schedule_id, seat_id）</text>
+<path d="M 2076 793.5 L 2109 793.5 Q 2118 793.5 2118 784.5 L 2118 683.5 Q 2118 674.5 2109 674.5 L 2076 674.5" fill="none" stroke="#555" stroke-width="1.5" stroke-dasharray="7 5"/>
+<line x1="2065" y1="793.5" x2="2052" y2="787.5" stroke="#444" stroke-width="1.4"/>
+<line x1="2065" y1="793.5" x2="2052" y2="793.5" stroke="#444" stroke-width="1.4"/>
+<line x1="2065" y1="793.5" x2="2052" y2="799.5" stroke="#444" stroke-width="1.4"/>
+<circle cx="2070" cy="793.5" r="4" fill="white" stroke="#444" stroke-width="1.4"/>
+<line x1="2058" y1="668.5" x2="2058" y2="680.5" stroke="#444" stroke-width="1.6"/>
+<circle cx="2067" cy="674.5" r="4" fill="white" stroke="#444" stroke-width="1.4"/>
+<text x="2084" y="786.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5">0..N</text>
+<text x="2084" y="667.5" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#555" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="3.5">0..1</text>
+<text x="0" y="0" font-family="Helvetica,Arial,sans-serif" font-size="11" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5"></text>
+<text x="2128" y="700" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">day_pass_ref</text>
+<text x="2128" y="713" font-family="Helvetica,Arial,sans-serif" font-size="10" font-weight="bold" fill="#333" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="3.5">self-ref · no FK</text>
+</svg>
