@@ -412,6 +412,16 @@ def _execute_tool(
             network        = params.get("network", "auto")
             optimise_by    = params.get("optimise_by", "time")
 
+            # The small local model occasionally picks a network that
+            # contradicts the station IDs (e.g. network='rail' for
+            # MS01→MS14), which guarantees an empty result. The IDs are
+            # authoritative — override the LLM's choice when they disagree.
+            _o, _d = origin_id.upper(), destination_id.upper()
+            if _o.startswith("MS") and _d.startswith("MS") and network == "rail":
+                network = "metro"
+            elif _o.startswith("NR") and _d.startswith("NR") and network == "metro":
+                network = "rail"
+
             # Detect cross-network routing (one MS, one NR)
             is_cross = (
                 (origin_id.upper().startswith("MS") and destination_id.upper().startswith("NR")) or
@@ -434,11 +444,19 @@ def _execute_tool(
                 )
 
         elif tool_name == "find_alternative_routes":
+            # Same ID-over-LLM network guard as find_route.
+            _o = params["origin_id"].upper()
+            _d = params["destination_id"].upper()
+            _net = params.get("network", "auto")
+            if _o.startswith("MS") and _d.startswith("MS") and _net == "rail":
+                _net = "metro"
+            elif _o.startswith("NR") and _d.startswith("NR") and _net == "metro":
+                _net = "rail"
             routes = query_alternative_routes(
                 origin_id=params["origin_id"],
                 destination_id=params["destination_id"],
                 avoid_station_id=params["avoid_station_id"],
-                network=params.get("network", "auto"),
+                network=_net,
             )
             result = [{"route_number": i + 1, "legs": r} for i, r in enumerate(routes)]
 
@@ -756,7 +774,16 @@ JSON:"""
         content = (
             f"DATA FROM TRANSITFLOW DATABASE:\n{data_block}"
             f"\n\nUser asks: {user_message}"
-            f"\n\nAnswer using only the data above:"
+            "\n\nThe DATA block above is the authoritative result retrieved "
+            "from the live database for this exact question. If it contains "
+            "records, you MUST present them faithfully — never claim no data "
+            "was found, and never say a station, schedule or route does not "
+            "exist while records are shown above. Only report that nothing "
+            "was found if the DATA block is genuinely empty (e.g. shows "
+            "'found: False' or '(no records)'). Begin your answer by stating "
+            "what was found (e.g. 'There are 2 services from X to Y:'), then "
+            "list the records."
+            "\n\nAnswer using only the data above:"
         )
     elif any(kw in user_message.lower() for kw in _DB_KEYWORDS):
         # No tool was called but the question needs DB data — prevent hallucination.
