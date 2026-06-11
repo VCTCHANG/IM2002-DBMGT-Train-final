@@ -711,21 +711,28 @@ def register_user(
                 user_id = f"RU{count:02d}"
                 cur.execute("SELECT user_id FROM users WHERE user_id = %s", (user_id,))
 
-            # Insert user profile (no password here)
+            # Insert user profile (no credential material here — only the
+            # secret QUESTION, which is public by design)
             cur.execute("""
                 INSERT INTO users (user_id, full_name, email, date_of_birth,
-                                   secret_question, secret_answer, is_active)
-                VALUES (%s, %s, %s, %s, %s, %s, TRUE)
+                                   secret_question, is_active)
+                VALUES (%s, %s, %s, %s, %s, TRUE)
             """, (user_id, f"{first_name} {surname}", email,
-                  f"{year_of_birth}-01-01", secret_question, secret_answer))
+                  f"{year_of_birth}-01-01", secret_question))
 
-            # Hash password and store in separate user_credentials table
+            # Hash password AND secret answer into user_credentials.
+            # The secret answer can reset the password, so it is a credential:
+            # storing it in plain text would be an account-takeover backdoor.
+            # Normalise (trim + lowercase) before hashing so the comparison in
+            # verify_secret_answer stays case-insensitive.
             salt = bcrypt.gensalt()
             password_hash = bcrypt.hashpw(password.encode(), salt)
+            answer_hash = bcrypt.hashpw(
+                secret_answer.strip().lower().encode(), bcrypt.gensalt())
             cur.execute("""
-                INSERT INTO user_credentials (user_id, password_hash, salt)
-                VALUES (%s, %s, %s)
-            """, (user_id, password_hash.decode(), salt.decode()))
+                INSERT INTO user_credentials (user_id, password_hash, salt, secret_answer_hash)
+                VALUES (%s, %s, %s, %s)
+            """, (user_id, password_hash.decode(), salt.decode(), answer_hash.decode()))
 
             conn.commit()
             return True, user_id
@@ -780,15 +787,25 @@ def get_user_secret_question(email: str) -> Optional[str]:
 
 
 def verify_secret_answer(email: str, answer: str) -> bool:
-    """Case-insensitive comparison of the stored secret answer."""
+    """Case-insensitive check of the secret answer against its bcrypt hash.
+
+    The answer was normalised (trim + lowercase) before hashing at
+    registration, so normalising the input the same way preserves
+    case-insensitive behaviour without ever storing the answer in plain text.
+    """
     email = _norm_email(email)
     with _connect() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT secret_answer FROM users WHERE email = %s", (email,))
+            cur.execute("""
+                SELECT c.secret_answer_hash
+                FROM user_credentials c
+                JOIN users u ON u.user_id = c.user_id
+                WHERE u.email = %s
+            """, (email,))
             row = cur.fetchone()
-            if not row:
-                return False
-            return row[0].strip().lower() == answer.strip().lower()
+    if not row or not row[0]:
+        return False
+    return bcrypt.checkpw(answer.strip().lower().encode(), row[0].encode())
 
 
 def update_password(email: str, new_password: str) -> bool:

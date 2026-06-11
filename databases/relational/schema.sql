@@ -140,7 +140,10 @@ CREATE TABLE IF NOT EXISTS seat_layouts (
 -- 6. Users
 --    PK: VARCHAR(10) — operator-assigned IDs (e.g. "RU01").
 --    Soft delete: is_active = FALSE preserves booking/payment history.
---    Password is NOT stored here — see user_credentials table.
+--    NO credential material is stored here — password hash, salt and the
+--    secret-answer hash all live in user_credentials. secret_question stays
+--    here because it is non-secret by design: it is displayed to anyone who
+--    enters the email during password recovery.
 CREATE TABLE IF NOT EXISTS users (
     user_id         VARCHAR(10)   PRIMARY KEY,
     full_name       TEXT          NOT NULL,
@@ -148,24 +151,28 @@ CREATE TABLE IF NOT EXISTS users (
     phone           VARCHAR(20),
     date_of_birth   DATE,
     secret_question TEXT,
-    secret_answer   TEXT,
     registered_at   TIMESTAMPTZ   DEFAULT NOW(),
     -- Soft delete flag — set FALSE instead of deleting to preserve audit trail
     is_active       BOOLEAN       DEFAULT TRUE
 );
 
 -- 6b. User Credentials
---     Password hash and salt stored in a SEPARATE table from user profile data.
+--     ALL credential material in a SEPARATE table from user profile data.
 --     Rationale: principle of least privilege — queries that only need profile
 --     info (name, email) never touch credential data. bcrypt hash includes the
 --     cost factor; salt stored explicitly for auditability.
+--     secret_answer is hashed too: it can reset the password, so storing it in
+--     plain text would be an account-takeover backdoor equivalent to storing
+--     the password itself. It is normalised (trim + lowercase) BEFORE hashing
+--     so the required case-insensitive comparison still works.
 CREATE TABLE IF NOT EXISTS user_credentials (
     -- CASCADE: deleting a user also removes their credentials
-    user_id       VARCHAR(10)  PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
-    password_hash TEXT         NOT NULL,  -- bcrypt hash (includes cost factor)
-    salt          TEXT         NOT NULL,  -- bcrypt-generated random salt per user
-    created_at    TIMESTAMPTZ  DEFAULT NOW(),
-    updated_at    TIMESTAMPTZ  DEFAULT NOW()
+    user_id            VARCHAR(10)  PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    password_hash      TEXT         NOT NULL,  -- bcrypt hash (includes cost factor)
+    salt               TEXT         NOT NULL,  -- bcrypt-generated random salt per user
+    secret_answer_hash TEXT,                   -- bcrypt hash of normalised secret answer
+    created_at         TIMESTAMPTZ  DEFAULT NOW(),
+    updated_at         TIMESTAMPTZ  DEFAULT NOW()
 );
 
 -- 7. National Rail Bookings

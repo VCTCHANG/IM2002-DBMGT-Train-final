@@ -215,36 +215,45 @@ def seed_seat_layouts(cur):
 
 def seed_users(cur):
     data = load("registered_users.json")
-    # Note: no password column — stored separately in user_credentials
+    # Note: NO credential material here — password and secret answer are hashed
+    # into user_credentials. Only the (public) secret_question stays in users.
     rows = [
         (u["user_id"], u["full_name"], u["email"],
          u.get("phone"), u.get("date_of_birth"),
-         u.get("secret_question"), u.get("secret_answer"),
+         u.get("secret_question"),
          u.get("registered_at"), u.get("is_active", True))
         for u in data
     ]
     n = insert_many(cur, "users",
                     ["user_id", "full_name", "email", "phone",
-                     "date_of_birth", "secret_question", "secret_answer",
+                     "date_of_birth", "secret_question",
                      "registered_at", "is_active"], rows)
     print(f"  users: {n} rows")
 
 
 def seed_user_credentials(cur):
-    """Hash each mock user's password with bcrypt and store in user_credentials.
-    Salt is stored separately from user info — never in the users table."""
+    """Hash each mock user's password AND secret answer with bcrypt and store
+    them in user_credentials. No credential material goes into the users table.
+    The secret answer is normalised (trim + lowercase) before hashing so that
+    verification stays case-insensitive."""
     data = load("registered_users.json")
     rows = []
     for u in data:
         salt = bcrypt.gensalt()                          # unique random salt per user
         password_hash = bcrypt.hashpw(u["password"].encode(), salt)
+        answer = u.get("secret_answer")
+        answer_hash = (
+            bcrypt.hashpw(answer.strip().lower().encode(), bcrypt.gensalt()).decode()
+            if answer else None
+        )
         rows.append((
             u["user_id"],
             password_hash.decode(),  # store hash as string
             salt.decode(),           # store salt separately
+            answer_hash,
         ))
     n = insert_many(cur, "user_credentials",
-                    ["user_id", "password_hash", "salt"], rows)
+                    ["user_id", "password_hash", "salt", "secret_answer_hash"], rows)
     print(f"  user_credentials: {n} rows")
 
 
