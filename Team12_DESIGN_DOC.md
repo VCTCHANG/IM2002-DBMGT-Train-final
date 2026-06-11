@@ -17,10 +17,10 @@
 
 ![TransitFlow ER Diagram](https://raw.githubusercontent.com/VCTCHANG/Team12_113403062_transitflow/main/docs/TransitFlow_ER.png)
 
-> 完整解析度版本在 repository 內：[`docs/TransitFlow_ER.png`](docs/TransitFlow_ER.png)（點陣圖）
-> 與 [`docs/TransitFlow_ER.svg`](docs/TransitFlow_ER.svg)（向量圖，瀏覽器開啟可任意放大）。
+> 完整解析度版本在 repository 內：[`docs/TransitFlow_ER.png`](https://github.com/VCTCHANG/Team12_113403062_transitflow/blob/main/docs/TransitFlow_ER.png)（點陣圖）
+> 與 [`docs/TransitFlow_ER.svg`](https://github.com/VCTCHANG/Team12_113403062_transitflow/blob/main/docs/TransitFlow_ER.svg)（向量圖，瀏覽器開啟可任意放大）。
 > 此圖由程式直接從資料表定義生成，因此每個欄位名稱與型別都與
-> [`databases/relational/schema.sql`](databases/relational/schema.sql) 完全同步。
+> [`databases/relational/schema.sql`](https://github.com/VCTCHANG/Team12_113403062_transitflow/blob/main/databases/relational/schema.sql) 完全同步。
 
 ### 圖例說明
 
