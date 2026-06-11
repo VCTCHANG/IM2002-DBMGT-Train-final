@@ -294,6 +294,7 @@ check_national_rail_availability(origin_id, destination_id, travel_date?)
 get_national_rail_fare(schedule_id, fare_class, stops_travelled)
 check_metro_availability(origin_id, destination_id)
 calculate_metro_fare(schedule_id, stops_travelled)
+get_metro_fare(origin_id, destination_id)
 get_available_seats(schedule_id, travel_date, fare_class)
 make_booking(schedule_id, origin_station_id, destination_station_id, travel_date, fare_class, seat_id, ticket_type?)
 cancel_booking(booking_id)
@@ -340,14 +341,10 @@ def _execute_tool(
                 result = {"error": "No metro service found between these stations."}
             else:
                 sched = schedules[0]
-                stops = sched.get("stops_in_order") or []
-                if isinstance(stops, str):
-                    import json as _json
-                    stops = _json.loads(stops)
-                try:
-                    n_stops = stops.index(params["destination_id"]) - stops.index(params["origin_id"])
-                except ValueError:
-                    n_stops = 1
+                # stops_travelled is computed by query_metro_schedules from the
+                # junction table (destination stop_order - origin stop_order),
+                # so use it directly instead of re-deriving from the stop list.
+                n_stops = sched.get("stops_travelled") or 1
                 fare = query_metro_fare(sched["schedule_id"], n_stops)
                 result = {
                     "origin":       sched.get("origin_name", params["origin_id"]),

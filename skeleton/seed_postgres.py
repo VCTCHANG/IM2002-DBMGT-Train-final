@@ -272,15 +272,15 @@ def seed_metro_travels(cur):
     rows = [
         (t["trip_id"], t["user_id"], t["schedule_id"],
          t["origin_station_id"], t["destination_station_id"],
-         t["travel_date"], t.get("ticket_type"), t.get("stops_travelled"),
-         t.get("amount_usd"), t.get("status"),
+         t["travel_date"], t.get("ticket_type"), t.get("day_pass_ref"),
+         t.get("stops_travelled"), t.get("amount_usd"), t.get("status"),
          t.get("purchased_at"), t.get("travelled_at"))
         for t in data
     ]
     n = insert_many(cur, "metro_travels",
                     ["trip_id", "user_id", "schedule_id", "origin_station_id",
                      "destination_station_id", "travel_date", "ticket_type",
-                     "stops_travelled", "amount_usd", "status",
+                     "day_pass_ref", "stops_travelled", "amount_usd", "status",
                      "purchased_at", "travelled_at"], rows)
     print(f"  metro_travels: {n} rows")
 

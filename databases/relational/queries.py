@@ -97,7 +97,19 @@ def query_national_rail_availability(
     # Join stops table twice (once for origin, once for destination) so we can
     # compare stop_order directly — avoids JSONB array scanning.
     # WHERE o.stop_order < d.stop_order ensures direction is correct.
-    sql = """
+    #
+    # When a travel_date is given, also filter by operating day: NR_SCH05–08
+    # run weekdays only, so e.g. a Saturday query must exclude them and may
+    # legitimately return []. to_char(date, 'dy') yields lowercase 'mon'..'sun',
+    # matching the day values stored in national_rail_schedule_operates_on.
+    day_filter = """
+          AND EXISTS (
+              SELECT 1 FROM national_rail_schedule_operates_on op
+              WHERE op.schedule_id = s.schedule_id
+                AND op.day = to_char(%s::date, 'dy')
+          )
+    """ if travel_date else ""
+    sql = f"""
         SELECT
             s.schedule_id,
             s.line,
@@ -121,11 +133,15 @@ def query_national_rail_availability(
         JOIN national_rail_stations orig_s ON orig_s.station_id = %s
         JOIN national_rail_stations dest_s ON dest_s.station_id = %s
         WHERE o.stop_order < d.stop_order
+        {day_filter}
         ORDER BY s.first_train_time
     """
+    params = [origin_id, destination_id, origin_id, destination_id]
+    if travel_date:
+        params.append(travel_date)
     with _connect() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(sql, (origin_id, destination_id, origin_id, destination_id))
+            cur.execute(sql, params)
             rows = [dict(r) for r in cur.fetchall()]
 
     # Augment each schedule with seat availability for the requested date
@@ -218,7 +234,12 @@ def query_metro_schedules(origin_id: str, destination_id: str) -> list[dict]:
             s.per_stop_rate_usd,
             orig_s.name AS origin_name,
             dest_s.name AS destination_name,
-            (d.stop_order - o.stop_order) AS stops_travelled
+            (d.stop_order - o.stop_order) AS stops_travelled,
+            -- Full ordered stop sequence of this schedule: results must include
+            -- the stop sequence itself, not just the count of stops travelled.
+            (SELECT array_agg(st.station_id ORDER BY st.stop_order)
+             FROM metro_schedule_stops st
+             WHERE st.schedule_id = s.schedule_id) AS stops_in_order
         FROM metro_schedules s
         JOIN metro_schedule_stops o ON o.schedule_id = s.schedule_id AND o.station_id = %s
         JOIN metro_schedule_stops d ON d.schedule_id = s.schedule_id AND d.station_id = %s
@@ -331,8 +352,20 @@ def auto_select_adjacent_seats(available_seats: list[dict], count: int) -> list[
 
 # ── USER & BOOKING QUERIES ────────────────────────────────────────────────────
 
+def _norm_email(email: str) -> str:
+    """Normalise an email for storage and lookup.
+
+    Emails are stored lowercase at registration, so every lookup must lower
+    its input too — VARCHAR comparison is case-sensitive, and a user who
+    registers as Alice@Example.com would otherwise become invisible to
+    profile/booking lookups made with the lowercased session state.
+    """
+    return email.strip().lower()
+
+
 def query_user_profile(user_email: str) -> Optional[dict]:
     """Return a user's profile by email, or None if not found."""
+    user_email = _norm_email(user_email)
     with _connect() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
@@ -357,6 +390,7 @@ def query_user_bookings(user_email: str) -> dict:
     Returns:
         dict with keys 'national_rail' (list) and 'metro' (list)
     """
+    user_email = _norm_email(user_email)
     with _connect() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             # National rail bookings
@@ -401,9 +435,12 @@ def query_payment_info(booking_id: str) -> Optional[dict]:
     """Return payment record for a booking or metro trip."""
     with _connect() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            # A cancelled booking has two payment rows (purchase + refund);
+            # order by paid_at so we deterministically return the original purchase.
             cur.execute(
                 "SELECT payment_id, booking_id, amount_usd, method, status, paid_at::text "
-                "FROM payments WHERE booking_id = %s",
+                "FROM payments WHERE booking_id = %s "
+                "ORDER BY paid_at ASC",
                 (booking_id,),
             )
             row = cur.fetchone()
@@ -490,6 +527,18 @@ def execute_booking(
                 seat_id = seat_row["seat_id"]
                 coach = seat_row["coach"]
             else:
+                # Validate the seat physically exists on this schedule in the
+                # requested fare class BEFORE checking occupancy — otherwise a
+                # typo'd seat_id would create a ghost booking with coach = NULL.
+                cur.execute("SELECT coach, fare_class FROM seat_layouts "
+                            "WHERE schedule_id = %s AND seat_id = %s",
+                            (schedule_id, seat_id))
+                seat_row = cur.fetchone()
+                if not seat_row:
+                    return False, f"Seat {seat_id} does not exist on schedule {schedule_id}"
+                if seat_row["fare_class"] != fare_class:
+                    return False, (f"Seat {seat_id} is a {seat_row['fare_class']}-class seat; "
+                                   f"requested fare class is {fare_class}")
                 cur.execute("""
                     SELECT COUNT(*) AS cnt FROM national_rail_bookings
                     WHERE schedule_id = %s AND travel_date = %s
@@ -497,14 +546,15 @@ def execute_booking(
                 """, (schedule_id, travel_date, seat_id))
                 if cur.fetchone()["cnt"] > 0:
                     return False, f"Seat {seat_id} is already booked"
-                cur.execute("SELECT coach FROM seat_layouts WHERE schedule_id = %s AND seat_id = %s",
-                            (schedule_id, seat_id))
-                seat_row = cur.fetchone()
-                coach = seat_row["coach"] if seat_row else None
+                coach = seat_row["coach"]
 
             booking_id = _gen_booking_id()
             now = datetime.now(timezone.utc)
 
+            # Design limitation: the timetable is frequency-based, so no exact
+            # service time is chosen at booking. first_train_time is stored as a
+            # representative departure_time; execute_cancellation derives its
+            # refund window from this value, which is therefore conservative.
             cur.execute("""
                 INSERT INTO national_rail_bookings
                 (booking_id, user_id, schedule_id, origin_station_id, destination_station_id,
@@ -544,6 +594,19 @@ def execute_booking(
 
 
 def execute_cancellation(booking_id: str, user_id: str) -> tuple[bool, dict | str]:
+    """
+    Cancel a national rail booking (soft delete: status → 'cancelled') and
+    calculate the refund per the cancellation windows in refund_policy.json
+    (RF001 for normal services, RF002 for express).
+
+    Args:
+        booking_id: e.g. "BK-A1B2C3" — must belong to user_id
+        user_id:    e.g. "RU01" — the logged-in user
+
+    Returns:
+        (True, result_dict)    on success — includes refund_amount
+        (False, error_message) if not found, not owned, or already cancelled
+    """
     conn = psycopg2.connect(PG_DSN)
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -600,6 +663,9 @@ def execute_cancellation(booking_id: str, user_id: str) -> tuple[bool, dict | st
                 "booking_id": booking_id,
                 "status": "cancelled",
                 "original_amount_usd": amount,
+                # Both keys carry the same value: refund_amount is the contract
+                # name expected by callers; refund_amount_usd kept for clarity.
+                "refund_amount": refund,
                 "refund_amount_usd": refund,
                 "policy_applied": note,
             }
@@ -626,6 +692,7 @@ def register_user(
     Password is hashed with bcrypt; hash and salt stored in user_credentials (not in users).
     Returns (True, user_id) on success or (False, error_message) on failure.
     """
+    email = _norm_email(email)   # stored lowercase so later lookups always match
     conn = psycopg2.connect(PG_DSN)
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -675,6 +742,7 @@ def login_user(email: str, password: str) -> Optional[dict]:
     Fetches hash from user_credentials (separate table), never compares plaintext.
     Returns user dict on success or None on failure.
     """
+    email = _norm_email(email)
     with _connect() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             # Get user profile
@@ -683,7 +751,9 @@ def login_user(email: str, password: str) -> Optional[dict]:
                        c.password_hash
                 FROM users u
                 JOIN user_credentials c ON c.user_id = u.user_id
-                WHERE u.email = %s
+                -- Soft-deleted accounts (is_active = FALSE) must not log in:
+                -- consistent with the soft-delete strategy declared in schema.sql.
+                WHERE u.email = %s AND u.is_active
             """, (email,))
             row = cur.fetchone()
     if not row:
@@ -700,6 +770,8 @@ def login_user(email: str, password: str) -> Optional[dict]:
 
 
 def get_user_secret_question(email: str) -> Optional[str]:
+    """Return the user's secret question, or None for an unknown email."""
+    email = _norm_email(email)
     with _connect() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT secret_question FROM users WHERE email = %s", (email,))
@@ -708,6 +780,8 @@ def get_user_secret_question(email: str) -> Optional[str]:
 
 
 def verify_secret_answer(email: str, answer: str) -> bool:
+    """Case-insensitive comparison of the stored secret answer."""
+    email = _norm_email(email)
     with _connect() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT secret_answer FROM users WHERE email = %s", (email,))
@@ -722,6 +796,7 @@ def update_password(email: str, new_password: str) -> bool:
     Update password: generate new salt, rehash, update user_credentials table only.
     The users table is never touched.
     """
+    email = _norm_email(email)
     conn = psycopg2.connect(PG_DSN)
     try:
         with conn.cursor() as cur:
